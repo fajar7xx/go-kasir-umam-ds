@@ -1,1 +1,52 @@
+# ===== Go build artifacts =====
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Common build output dirs (adjust to your project)
+bin/
+dist/
+build/
+release/
+tmp/
+coverage/
+
+# Go profiling / debug
+*.prof
+*.trace
+__debug_bin
+
+# ===== Logs & runtime files =====
 *.log
+logs/
+*.pid
+
+# ===== Environment / secrets (DO NOT COMMIT) =====
+.env
+.env.*
+!.env.example
+
+secrets/
+*.pem
+*.key
+*.crt
+
+# ===== Dependency dir (enable only if you don't vendor) =====
+# vendor/
+
+# ===== IDE / Editor =====
+.idea/
+.vscode/
+*.iml
+
+# ===== OS files =====
+.DS_Store
+Thumbs.db
+
+# ===== Misc =====
+*.swp
+*.swo

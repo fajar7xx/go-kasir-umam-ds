@@ -16,24 +16,3 @@ var Products = []Product{
 	{ID: 4, Name: "Pisang Goreng", Description: "Pisang goreng crispy", Price: 2500, Stock: 100},
 	{ID: 5, Name: "Risol", Description: "Risol dengan taburan umamy", Price: 2500, Stock: 200},
 }
-
-func GetNextID() int {
-	maxID := 0
-	for _, p := range Products {
-		if p.ID > maxID {
-			maxID = p.ID
-		}
-	}
-
-	return maxID + 1
-}
-
-func FindByID(id int) (*Product, int) {
-	for i, p := range Products {
-		if p.ID == id {
-			return &p, i
-		}
-	}
-
-	return nil, -1
-}
