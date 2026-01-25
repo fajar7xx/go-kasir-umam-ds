@@ -2,24 +2,112 @@ package main
 
 import (
 	"encoding/json"
+	"fajar7xx/go-kasir-umam-ds/internal/models"
 	"fmt"
 	"net/http"
+	"strconv"
 )
 
-type Product struct {
-	ID    int    `json:"id"`
-	Name  string `json:"name"`
-	Price int    `json:"price"`
-	Stock int    `json:"stock"`
+func getProducts(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(models.Products)
 }
 
-// variable global yang bisa di akses dimana maa
-var products = []Product{
-	{ID: 1, Name: "Indomie Goreng", Price: 3500, Stock: 10},
-	{ID: 2, Name: "Indomie Ayam", Price: 4000, Stock: 15},
-	{ID: 3, Name: "Indomie Telur", Price: 4500, Stock: 20},
-	{ID: 4, Name: "Indomie Soto", Price: 5000, Stock: 25},
-	{ID: 5, Name: "Indomie Ayam Bakar", Price: 5500, Stock: 30},
+func getProduct(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid Request of product id", http.StatusBadRequest)
+		return
+	}
+
+	for _, product := range models.Products {
+		if product.ID == id {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(product)
+			return
+		}
+	}
+
+	http.Error(w, "Product not found", http.StatusNotFound)
+}
+
+func createProduct(w http.ResponseWriter, r *http.Request) {
+	var newProduct models.Product
+	err := json.NewDecoder(r.Body).Decode(&newProduct)
+	if err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	// insert data to new products
+	newProduct.ID = len(models.Products) + 1
+	models.Products = append(models.Products, newProduct)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(newProduct)
+}
+
+func updateProduct(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "invalid request of product id", http.StatusBadRequest)
+		return
+	}
+
+	var updateProduct models.Product
+	err = json.NewDecoder(r.Body).Decode(&updateProduct)
+	if err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	for i := range models.Products {
+		if models.Products[i].ID == id {
+			// models.Products[i] = updateProduct
+			models.Products[i].Name = updateProduct.Name
+			models.Products[i].Description = updateProduct.Description
+			models.Products[i].Price = updateProduct.Price
+			models.Products[i].Stock = updateProduct.Stock
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(models.Products[i])
+			return
+		}
+	}
+
+	http.Error(w, "product not found", http.StatusNotFound)
+}
+
+func deleteProduct(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "invalid request of product id", http.StatusBadRequest)
+		return
+	}
+
+	for i, product := range models.Products {
+		if product.ID == id {
+			// create new slice
+			models.Products = append(models.Products[:i], models.Products[i+1:]...)
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]string{
+				"status":  "OK",
+				"message": "Product has been successfully deleted",
+			})
+			return
+		}
+	}
+
+	http.Error(w, "product not found", http.StatusNotFound)
 }
 
 func main() {
@@ -33,12 +121,35 @@ func main() {
 	})
 
 	// GET /api/v1/products
+	// post /api/v1/products
 	http.HandleFunc("/api/v1/products", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("content-Type", "application/json")
-		json.NewEncoder(w).Encode(products)
+		switch r.Method {
+		case http.MethodGet:
+			getProducts(w, r)
+		case http.MethodPost:
+			createProduct(w, r)
+		}
 	})
 
-	// POST /api/v1/products
+	// get /api/v1/products/{id}
+	// put /api/v1/products/{id}
+	// delete /api/v1/products/{id}
+	http.HandleFunc("/api/v1/products/{id}", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			getProduct(w, r)
+		case http.MethodPut, http.MethodPatch:
+			updateProduct(w, r)
+		case http.MethodDelete:
+			deleteProduct(w, r)
+		}
+	})
+
+	// get /api/v1/categories
+	// post /api/v1/categories
+	// get /api/v1/categories/{id}
+	// put /api/v1/categories/{id}
+	// delete /api/v1/categories/{id}
 
 	fmt.Println("Server started on port 8080")
 
