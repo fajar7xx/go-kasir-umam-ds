@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
-	"fajar7xx/go-kasir-umam-ds/internal/models"
+	"fajar7xx/go-kasir-umam-ds/models"
 	"net/http"
 	"strconv"
 )
