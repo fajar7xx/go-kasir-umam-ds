@@ -2,109 +2,129 @@ package handlers
 
 import (
 	"encoding/json"
+	"fajar7xx/go-kasir-umam-ds/internal/services"
 	"fajar7xx/go-kasir-umam-ds/models"
+	"fajar7xx/go-kasir-umam-ds/utils"
 	"net/http"
-	"strconv"
 )
 
 // categoryHandler mengelola semua endpoint
 type CategoryHandler struct {
 	// nanti bisa ditambah dependency seperti DB, logger, dll
+	categoryService services.CategoryServiceInterface
 }
 
 // newCategoryHandler membuat instance baru CategoryHandler
-func NewCategoryHandler() *CategoryHandler {
-	return &CategoryHandler{}
+func NewCategoryHandler(categoryService services.CategoryServiceInterface) *CategoryHandler {
+	return &CategoryHandler{
+		categoryService: categoryService,
+	}
 }
 
-func (h *CategoryHandler) GetALL(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("content-type", "application/json")
-	json.NewEncoder(w).Encode(models.Categories)
+func (h *CategoryHandler) HandleCategories(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		h.GetAll(w, r)
+	case http.MethodPost:
+		h.Create(w, r)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (h *CategoryHandler) HandleCategoryByID(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		h.GetByID(w, r)
+	case http.MethodPatch, http.MethodPut:
+		h.Update(w, r)
+	case http.MethodDelete:
+		h.Delete(w, r)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (h *CategoryHandler) GetAll(w http.ResponseWriter, r *http.Request) {
+	categories, err := h.categoryService.GetAll()
+	if err != nil {
+		utils.SendError(w, "INTERNAL_ERROR", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	utils.SendSuccess(w, categories, http.StatusOK)
 }
 
 func (h *CategoryHandler) GetByID(w http.ResponseWriter, r *http.Request) {
-	idStr := r.PathValue("id")
-	id, err := strconv.Atoi(idStr)
+	id, err := utils.ParseIdFromPath(r, "id")
 	if err != nil {
-		http.Error(w, "Invaliud request of category id", http.StatusBadRequest)
+		utils.SendError(w, "INVALID_ID", "invalid category ID format", http.StatusBadRequest)
+		return
 	}
 
-	for _, category := range models.Categories {
-		if category.ID == id {
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(category)
-			return
-		}
+	category, err := h.categoryService.GetByID(id)
+	if err != nil {
+		utils.SendError(w, "CATEGORY_NOT_FOUND", "category not found", http.StatusNotFound)
+		return
 	}
 
-	http.Error(w, "Category not found", http.StatusNotFound)
+	utils.SendSuccess(w, category, http.StatusOK)
 }
 
 func (h *CategoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var newCategory models.Category
 	err := json.NewDecoder(r.Body).Decode(&newCategory)
 	if err != nil {
-		http.Error(w, "Invalid request", http.StatusBadRequest)
+		utils.SendError(w, "INVALID_REQUEST", "invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	newCategory.ID = len(models.Categories) + 1
-	models.Categories = append(models.Categories, newCategory)
+	err = h.categoryService.Create(&newCategory)
+	if err != nil {
+		utils.SendError(w, "CREATE_FAILED", err.Error(), http.StatusBadRequest)
+		return
+	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(newCategory)
+	utils.SendSuccess(w, newCategory, http.StatusCreated)
 }
 
 func (h *CategoryHandler) Update(w http.ResponseWriter, r *http.Request) {
-	idStr := r.PathValue("id")
-	id, err := strconv.Atoi(idStr)
+	id, err := utils.ParseIdFromPath(r, "id")
 	if err != nil {
-		http.Error(w, "invalid request of category id", http.StatusBadRequest)
+		utils.SendError(w, "INVALID_ID", "invalid category ID format", http.StatusBadRequest)
 		return
 	}
 
-	var updateCategory models.Category
-	err = json.NewDecoder(r.Body).Decode(&updateCategory)
+	var category models.Category
+	err = json.NewDecoder(r.Body).Decode(&category)
 	if err != nil {
-		http.Error(w, "invalid request", http.StatusBadRequest)
+		utils.SendError(w, "INVALID_REQUEST", "invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	for i := range models.Categories {
-		if models.Categories[i].ID == id {
-			models.Categories[i].Name = updateCategory.Name
-			models.Categories[i].Description = updateCategory.Description
-
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(models.Categories[i])
-			return
-		}
+	updatedCategory, err := h.categoryService.Update(id, &category)
+	if err != nil {
+		utils.SendError(w, "UPDATE_FAILED", err.Error(), http.StatusBadRequest)
+		return
 	}
 
-	http.Error(w, "categor not found", http.StatusNotFound)
+	utils.SendSuccess(w, updatedCategory, http.StatusOK)
 }
 
 func (h *CategoryHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	idStr := r.PathValue("id")
-	id, err := strconv.Atoi(idStr)
+	id, err := utils.ParseIdFromPath(r, "id")
 	if err != nil {
-		http.Error(w, "invalid request of category id", http.StatusBadRequest)
+		utils.SendError(w, "INVALID_ID", "invalid category ID format", http.StatusBadRequest)
 		return
 	}
 
-	for i, category := range models.Categories {
-		if category.ID == id {
-			models.Categories = append(models.Categories[:i], models.Categories[i+1:]...)
-
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]string{
-				"status":  "OK",
-				"message": "Category has been successfully deleted",
-			})
-			return
-		}
+	err = h.categoryService.Delete(id)
+	if err != nil {
+		utils.SendError(w, "DELETE_FAILED", err.Error(), http.StatusBadRequest)
+		return
 	}
 
-	http.Error(w, "Category not found", http.StatusNotFound)
+	utils.SendSuccess(w, map[string]string{
+		"message": "category successfully deleted",
+	}, http.StatusOK)
 }

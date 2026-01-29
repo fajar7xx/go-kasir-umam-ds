@@ -43,9 +43,9 @@ func main() {
 	productService := services.NewProductService(productRepository)
 	productHandler := handlers.NewProductHandler(productService)
 
-	// initialize handler
-	// productHandler := handlers.NewProductHandler()
-	categoryHandler := handlers.NewCategoryHandler()
+	categoryRepository := repositories.NewCategoryRepository(db)
+	categoryService := services.NewCategoryService(categoryRepository)
+	categoryHandler := handlers.NewCategoryHandler(categoryService)
 
 	// localhost:8080/health
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -67,32 +67,12 @@ func main() {
 
 	// get /api/v1/categories
 	// post /api/v1/categories
-	http.HandleFunc("/api/v1/categories", func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			categoryHandler.GetALL(w, r)
-		case http.MethodPost:
-			categoryHandler.Create(w, r)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
+	http.HandleFunc("/api/v1/categories", categoryHandler.HandleCategories)
 
 	// get /api/v1/categories/{id}
 	// put /api/v1/categories/{id}
 	// delete /api/v1/categories/{id}
-	http.HandleFunc("/api/v1/categories/{id}", func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			categoryHandler.GetByID(w, r)
-		case http.MethodPut, http.MethodPatch:
-			categoryHandler.Update(w, r)
-		case http.MethodDelete:
-			categoryHandler.Delete(w, r)
-		default:
-			http.Error(w, "Method now allowed", http.StatusMethodNotAllowed)
-		}
-	})
+	http.HandleFunc("/api/v1/categories/{id}", categoryHandler.HandleCategoryByID)
 
 	addr := "0.0.0.0:" + config.Port
 	fmt.Println("Server running on", addr)
