@@ -123,7 +123,7 @@ func (repo *CategoryRepository) Update(id int, category *models.Category) error 
 	}
 
 	if rows == 0 {
-		return errors.New("categori not found")
+		return errors.New("category not found")
 	}
 
 	return nil
