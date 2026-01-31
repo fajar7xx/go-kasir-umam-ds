@@ -21,9 +21,10 @@ func TestCategoryRepository_GetAll(t *testing.T) {
 	repo := NewCategoryRepository(db)
 
 	now := time.Now()
+	desc := "Food Category"
 	rows := sqlmock.NewRows([]string{"id", "name", "description", "created_at", "updated_at"}).
-		AddRow(1, "Food", "Food Category", now, now).
-		AddRow(2, "Beverage", "Beverage Category", now, now)
+		AddRow(1, "Food", &desc, now, now).
+		AddRow(2, "Beverage", nil, now, now)
 
 	query := regexp.QuoteMeta(`SELECT id, name, description, created_at, updated_at FROM categories`)
 	mock.ExpectQuery(query).WillReturnRows(rows)
@@ -33,7 +34,10 @@ func TestCategoryRepository_GetAll(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, categories, 2)
 	assert.Equal(t, "Food", categories[0].Name)
+	assert.NotNil(t, categories[0].Description)
+	assert.Equal(t, "Food Category", *categories[0].Description)
 	assert.Equal(t, "Beverage", categories[1].Name)
+	assert.Nil(t, categories[1].Description)
 }
 
 func TestCategoryRepository_GetAll_Error(t *testing.T) {
@@ -64,8 +68,9 @@ func TestCategoryRepository_GetByID(t *testing.T) {
 	repo := NewCategoryRepository(db)
 
 	now := time.Now()
+	desc := "Food Category"
 	rows := sqlmock.NewRows([]string{"id", "name", "description", "created_at", "updated_at"}).
-		AddRow(1, "Food", "Food Category", now, now)
+		AddRow(1, "Food", &desc, now, now)
 
 	query := regexp.QuoteMeta(`SELECT id, name, description, created_at, updated_at FROM categories where id = $1`)
 	mock.ExpectQuery(query).WithArgs(1).WillReturnRows(rows)
@@ -76,6 +81,7 @@ func TestCategoryRepository_GetByID(t *testing.T) {
 	assert.NotNil(t, category)
 	assert.Equal(t, 1, category.ID)
 	assert.Equal(t, "Food", category.Name)
+	assert.NotNil(t, category.Description)
 }
 
 func TestCategoryRepository_GetByID_NotFound(t *testing.T) {
@@ -107,9 +113,10 @@ func TestCategoryRepository_Create(t *testing.T) {
 	repo := NewCategoryRepository(db)
 
 	now := time.Now()
+	desc := "Food Category"
 	category := &models.Category{
 		Name:        "Food",
-		Description: "Food Category",
+		Description: &desc,
 	}
 
 	query := regexp.QuoteMeta(`INSERT INTO categories (name, description) VALUES ($1, $2) RETURNING id, created_at, updated_at`)
@@ -135,9 +142,10 @@ func TestCategoryRepository_Update(t *testing.T) {
 
 	repo := NewCategoryRepository(db)
 
+	desc := "Food Desc Updated"
 	category := &models.Category{
 		Name:        "Food Updated",
-		Description: "Food Desc Updated",
+		Description: &desc,
 	}
 
 	query := regexp.QuoteMeta(`UPDATE categories SET name=$1, description=$2, updated_at=NOW() WHERE id=$3`)
@@ -159,9 +167,10 @@ func TestCategoryRepository_Update_NotFound(t *testing.T) {
 
 	repo := NewCategoryRepository(db)
 
+	desc := "Food Desc Updated"
 	category := &models.Category{
 		Name:        "Food Updated",
-		Description: "Food Desc Updated",
+		Description: &desc,
 	}
 
 	query := regexp.QuoteMeta(`UPDATE categories SET name=$1, description=$2, updated_at=NOW() WHERE id=$3`)

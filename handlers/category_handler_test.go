@@ -108,7 +108,8 @@ func TestCategoryHandler_Create(t *testing.T) {
 	mockService := new(mocks.CategoryServiceMock)
 	handler := NewCategoryHandler(mockService)
 
-	newCategory := models.Category{Name: "Food", Description: "Tasty"}
+	desc := "Tasty"
+	newCategory := models.Category{Name: "Food", Description: &desc}
 
 	mockService.On("Create", mock.AnythingOfType("*models.Category")).Return(nil)
 
