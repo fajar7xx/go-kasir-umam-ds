@@ -12,3 +12,15 @@ type Product struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   *time.Time `json:"updated_at"`
 }
+
+type ProductResponse struct {
+	ID          int             `json:"id"`
+	Name        string          `json:"name"`
+	Description *string         `json:"description"`
+	Price       float64         `json:"price"`
+	Stock       int             `json:"stock"`
+	CategoryID  int             `json:"category_id"`
+	CreatedAt   time.Time       `json:"created_at"`
+	UpdatedAt   *time.Time      `json:"updated_at"`
+	Category    CategorySummary `json:"category"`
+}

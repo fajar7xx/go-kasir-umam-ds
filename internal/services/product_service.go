@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fajar7xx/go-kasir-umam-ds/internal/repositories"
 	"fajar7xx/go-kasir-umam-ds/models"
 )
@@ -8,11 +9,11 @@ import (
 // 1. Definisikan Interface Service (KONTRAK)
 // Ini yang akan dipanggil oleh Handler nantinya.
 type ProductServiceInterface interface {
-	GetAll() ([]models.Product, error)
-	GetByID(id int) (*models.Product, error)
-	Create(product *models.Product) error
-	Update(id int, product *models.Product) (*models.Product, error)
-	Delete(id int) error
+	GetAll(ctx context.Context) ([]models.ProductResponse, error)
+	GetByID(ctx context.Context, id int) (*models.ProductResponse, error)
+	Create(ctx context.Context, product *models.Product) (*models.ProductResponse, error)
+	Update(ctx context.Context, id int, product *models.Product) (*models.ProductResponse, error)
+	Delete(ctx context.Context, id int) error
 }
 
 // 2. Struct Implementasi (Concrete)
@@ -37,26 +38,25 @@ func NewProductService(productRepo repositories.ProductRepositoryInterface) Prod
 	}
 }
 
-func (serv *ProductService) GetAll() ([]models.Product, error) {
-	return serv.productRepo.GetAll()
+func (serv *ProductService) GetAll(ctx context.Context) ([]models.ProductResponse, error) {
+	return serv.productRepo.GetAll(ctx)
 }
 
-func (serv *ProductService) GetByID(id int) (*models.Product, error) {
-	return serv.productRepo.GetByID(id)
+func (serv *ProductService) GetByID(ctx context.Context, id int) (*models.ProductResponse, error) {
+	return serv.productRepo.GetByID(ctx, id)
 }
 
-func (serv *ProductService) Create(product *models.Product) error {
-	return serv.productRepo.Create(product)
+func (serv *ProductService) Create(ctx context.Context, product *models.Product) (*models.ProductResponse, error) {
+	return serv.productRepo.Create(ctx, product)
 }
 
-func (serv *ProductService) Update(id int, product *models.Product) (*models.Product, error) {
-	// return serv.productRepo.Update(id, product)
-	err := serv.productRepo.Update(id, product)
+func (serv *ProductService) Update(ctx context.Context, id int, product *models.Product) (*models.ProductResponse, error) {
+	err := serv.productRepo.Update(ctx, id, product)
 	if err != nil {
 		return nil, err
 	}
 
-	updatedProduct, err := serv.productRepo.GetByID(id)
+	updatedProduct, err := serv.productRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -64,6 +64,6 @@ func (serv *ProductService) Update(id int, product *models.Product) (*models.Pro
 	return updatedProduct, nil
 }
 
-func (serv *ProductService) Delete(id int) error {
-	return serv.productRepo.Delete(id)
+func (serv *ProductService) Delete(ctx context.Context, id int) error {
+	return serv.productRepo.Delete(ctx, id)
 }
