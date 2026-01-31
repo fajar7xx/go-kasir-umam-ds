@@ -47,6 +47,7 @@ func (repo *ProductRepository) GetAll(ctx context.Context) ([]models.ProductResp
 				  products p
 				  join categories c on p.category_id = c.id;`
 
+	// 1. QueryContext - Ambil banyak baris
 	rows, err := repo.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
@@ -131,6 +132,7 @@ func (repo *ProductRepository) GetByID(ctx context.Context, id int) (*models.Pro
 	// )
 
 	// QueryRowContext untuk single row + context
+	// 2. QueryRowContext - Ambil maksimal 1 baris
 	err := repo.db.QueryRowContext(ctx, query, id).Scan(
 		&p.ID,
 		&p.Name,
@@ -180,6 +182,8 @@ func (repo *ProductRepository) Create(ctx context.Context, product *models.Produ
 	// 	&product.UpdatedAt)
 
 	// QueryRowContext untuk INSERT ... RETURNING
+	// 	2. QueryRowContext - Ambil maksimal 1 baris
+	// Gunakan untuk: SELECT yang kamu yakin cuma return 1 baris atau kosong.
 	err := repo.db.QueryRowContext(ctx, query,
 		product.Name,
 		product.Price,
@@ -220,6 +224,8 @@ func (repo *ProductRepository) Update(ctx context.Context, id int, product *mode
 	// )
 
 	// ExecContext untuk UPDATE
+	// 3. ExecContext - Statement tanpa data
+	// Gunakan untuk: INSERT, UPDATE, DELETE yang tidak return baris data.
 	result, err := repo.db.ExecContext(ctx, query,
 		product.Name,
 		product.Price,
@@ -250,6 +256,9 @@ func (repo *ProductRepository) Delete(ctx context.Context, id int) error {
 
 	// result, err := repo.db.Exec(query, id)
 	// // ExecContext untuk DELETE
+	// 3. ExecContext - Statement tanpa data
+	// Gunakan untuk: INSERT, UPDATE, DELETE yang tidak return baris data.
+
 	result, err := repo.db.ExecContext(ctx, query, id)
 	if err != nil {
 		return err

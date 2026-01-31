@@ -1,16 +1,17 @@
 package services
 
 import (
+	"context"
 	"fajar7xx/go-kasir-umam-ds/internal/repositories"
 	"fajar7xx/go-kasir-umam-ds/models"
 )
 
 type CategoryServiceInterface interface {
-	GetAll() ([]models.Category, error)
-	GetByID(id int) (*models.Category, error)
-	Create(category *models.Category) error
-	Update(id int, category *models.Category) (*models.Category, error)
-	Delete(id int) error
+	GetAll(ctx context.Context) ([]models.CategoryResponse, error)
+	GetByID(ctx context.Context, id int) (*models.CategoryResponse, error)
+	Create(ctx context.Context, category *models.Category) (*models.CategoryResponse, error)
+	Update(ctx context.Context, id int, category *models.Category) (*models.CategoryResponse, error)
+	Delete(ctx context.Context, id int) error
 }
 
 type CategoryService struct {
@@ -23,25 +24,25 @@ func NewCategoryService(categoryRepo repositories.CategoryRepositoryInterface) C
 	}
 }
 
-func (serv *CategoryService) GetAll() ([]models.Category, error) {
-	return serv.categoryRepo.GetAll()
+func (serv *CategoryService) GetAll(ctx context.Context) ([]models.CategoryResponse, error) {
+	return serv.categoryRepo.GetAll(ctx)
 }
 
-func (serv *CategoryService) GetByID(id int) (*models.Category, error) {
-	return serv.categoryRepo.GetByID(id)
+func (serv *CategoryService) GetByID(ctx context.Context, id int) (*models.CategoryResponse, error) {
+	return serv.categoryRepo.GetByID(ctx, id)
 }
 
-func (serv *CategoryService) Create(category *models.Category) error {
-	return serv.categoryRepo.Create(category)
+func (serv *CategoryService) Create(ctx context.Context, category *models.Category) (*models.CategoryResponse, error) {
+	return serv.categoryRepo.Create(ctx, category)
 }
 
-func (serv *CategoryService) Update(id int, category *models.Category) (*models.Category, error) {
-	err := serv.categoryRepo.Update(id, category)
+func (serv *CategoryService) Update(ctx context.Context, id int, category *models.Category) (*models.CategoryResponse, error) {
+	err := serv.categoryRepo.Update(ctx, id, category)
 	if err != nil {
 		return nil, err
 	}
 
-	updatedCategory, err := serv.categoryRepo.GetByID(id)
+	updatedCategory, err := serv.categoryRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -49,6 +50,6 @@ func (serv *CategoryService) Update(id int, category *models.Category) (*models.
 	return updatedCategory, nil
 }
 
-func (serv *CategoryService) Delete(id int) error {
-	return serv.categoryRepo.Delete(id)
+func (serv *CategoryService) Delete(ctx context.Context, id int) error {
+	return serv.categoryRepo.Delete(ctx, id)
 }

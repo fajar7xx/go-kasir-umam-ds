@@ -1,17 +1,18 @@
 package repositories
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fajar7xx/go-kasir-umam-ds/models"
 )
 
 type CategoryRepositoryInterface interface {
-	GetAll() ([]models.Category, error)
-	GetByID(id int) (*models.Category, error)
-	Create(category *models.Category) error
-	Update(id int, category *models.Category) error
-	Delete(id int) error
+	GetAll(ctx context.Context) ([]models.CategoryResponse, error)
+	GetByID(ctx context.Context, id int) (*models.CategoryResponse, error)
+	Create(ctx context.Context, category *models.Category) (*models.CategoryResponse, error)
+	Update(ctx context.Context, id int, category *models.Category) error
+	Delete(ctx context.Context, id int) error
 }
 
 type CategoryRepository struct {
@@ -24,20 +25,20 @@ func NewCategoryRepository(db *sql.DB) CategoryRepositoryInterface {
 	}
 }
 
-func (repo *CategoryRepository) GetAll() ([]models.Category, error) {
+func (repo *CategoryRepository) GetAll(ctx context.Context) ([]models.CategoryResponse, error) {
 	query := `SELECT
-		id, name, description, created_at, updated_at
-		FROM categories`
+				id, name, description, created_at, updated_at
+				FROM categories`
 
-	rows, err := repo.db.Query(query)
+	rows, err := repo.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var categories []models.Category
+	categories := make([]models.CategoryResponse, 0, 20)
 	for rows.Next() {
-		var category models.Category
+		var category models.CategoryResponse
 		err := rows.Scan(
 			&category.ID,
 			&category.Name,
@@ -45,6 +46,7 @@ func (repo *CategoryRepository) GetAll() ([]models.Category, error) {
 			&category.CreatedAt,
 			&category.UpdatedAt,
 		)
+
 		if err != nil {
 			return nil, err
 		}
@@ -52,19 +54,21 @@ func (repo *CategoryRepository) GetAll() ([]models.Category, error) {
 		categories = append(categories, category)
 	}
 
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
 	return categories, nil
 }
 
-func (repo *CategoryRepository) GetByID(id int) (*models.Category, error) {
+func (repo *CategoryRepository) GetByID(ctx context.Context, id int) (*models.CategoryResponse, error) {
 	query := `SELECT
 				id, name, description, created_at, updated_at
 			FROM categories
 			where id = $1`
 
-	row := repo.db.QueryRow(query, id)
-
-	var category models.Category
-	err := row.Scan(
+	var category models.CategoryResponse
+	err := repo.db.QueryRowContext(ctx, query, id).Scan(
 		&category.ID,
 		&category.Name,
 		&category.Description,
@@ -81,14 +85,14 @@ func (repo *CategoryRepository) GetByID(id int) (*models.Category, error) {
 	return &category, nil
 }
 
-func (repo *CategoryRepository) Create(category *models.Category) error {
+func (repo *CategoryRepository) Create(ctx context.Context, category *models.Category) (*models.CategoryResponse, error) {
 	query := `INSERT INTO categories
 				(name, description)
 				VALUES
 				($1, $2)
 				RETURNING id, created_at, updated_at`
 
-	err := repo.db.QueryRow(query,
+	err := repo.db.QueryRowContext(ctx, query,
 		category.Name,
 		category.Description,
 	).Scan(
@@ -97,18 +101,18 @@ func (repo *CategoryRepository) Create(category *models.Category) error {
 		&category.UpdatedAt,
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return repo.GetByID(ctx, category.ID)
 }
 
-func (repo *CategoryRepository) Update(id int, category *models.Category) error {
+func (repo *CategoryRepository) Update(ctx context.Context, id int, category *models.Category) error {
 	query := `UPDATE categories
 			SET name=$1, description=$2, updated_at=NOW()
 			WHERE id=$3`
 
-	result, err := repo.db.Exec(query,
+	result, err := repo.db.ExecContext(ctx, query,
 		category.Name,
 		category.Description,
 		id,
@@ -129,9 +133,9 @@ func (repo *CategoryRepository) Update(id int, category *models.Category) error 
 	return nil
 }
 
-func (repo *CategoryRepository) Delete(id int) error {
+func (repo *CategoryRepository) Delete(ctx context.Context, id int) error {
 	query := `DELETE FROM categories where id=$1`
-	result, err := repo.db.Exec(query, id)
+	result, err := repo.db.ExecContext(ctx, query, id)
 	if err != nil {
 		return err
 	}
