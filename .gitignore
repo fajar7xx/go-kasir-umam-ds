@@ -13,7 +13,7 @@ dist/
 build/
 release/
 tmp/
-coverage/
+/coverage/
 
 # Go profiling / debug
 *.prof
@@ -54,7 +54,7 @@ task.todo
 
 # ===== AI =====
 QWEN.md
--e 
+
 # ===== Test Coverage Files =====
 cover.out
 coverage.out
