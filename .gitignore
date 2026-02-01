@@ -52,8 +52,11 @@ Thumbs.db
 *.swo
 task.todo
 
-# ===== AI =====
+# ===== AI / Personal Workflow =====
 QWEN.md
+CLAUDE.md
+docs/
+
 
 # ===== Test Coverage Files =====
 cover.out
