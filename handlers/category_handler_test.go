@@ -343,3 +343,82 @@ func TestCategoryHandler_HandleCategoryByID_AllMethods(t *testing.T) {
 		})
 	}
 }
+
+// Validation tests
+func TestCategoryHandler_Create_EmptyName(t *testing.T) {
+	mockService := new(mocks.CategoryServiceMock)
+	handler := NewCategoryHandler(mockService)
+
+	category := models.Category{Name: ""}
+	body, _ := json.Marshal(category)
+	req := httptest.NewRequest(http.MethodPost, "/categories", bytes.NewBuffer(body))
+	w := httptest.NewRecorder()
+
+	handler.Create(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	var response utils.ErrorResponse
+	json.NewDecoder(w.Body).Decode(&response)
+	assert.Contains(t, response.Error.Code, "INVALID")
+
+	mockService.AssertNotCalled(t, "Create")
+}
+
+func TestCategoryHandler_Update_EmptyName(t *testing.T) {
+	mockService := new(mocks.CategoryServiceMock)
+	handler := NewCategoryHandler(mockService)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("PUT /categories/{id}", handler.HandleCategoryByID)
+
+	category := models.Category{Name: ""}
+	body, _ := json.Marshal(category)
+	req := httptest.NewRequest(http.MethodPut, "/categories/1", bytes.NewBuffer(body))
+	w := httptest.NewRecorder()
+
+	mux.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	mockService.AssertNotCalled(t, "Update")
+}
+
+func TestCategoryHandler_GetByID_InvalidID(t *testing.T) {
+	mockService := new(mocks.CategoryServiceMock)
+	handler := NewCategoryHandler(mockService)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /categories/{id}", handler.HandleCategoryByID)
+
+	req := httptest.NewRequest(http.MethodGet, "/categories/abc", nil)
+	w := httptest.NewRecorder()
+
+	mux.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	var response utils.ErrorResponse
+	json.NewDecoder(w.Body).Decode(&response)
+	assert.Equal(t, "INVALID_ID", response.Error.Code)
+
+	mockService.AssertNotCalled(t, "GetByID")
+}
+
+func TestCategoryHandler_Update_InvalidID(t *testing.T) {
+	mockService := new(mocks.CategoryServiceMock)
+	handler := NewCategoryHandler(mockService)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("PUT /categories/{id}", handler.HandleCategoryByID)
+
+	desc := "Food"
+	category := models.Category{Name: "Food", Description: &desc}
+	body, _ := json.Marshal(category)
+	req := httptest.NewRequest(http.MethodPut, "/categories/xyz", bytes.NewBuffer(body))
+	w := httptest.NewRecorder()
+
+	mux.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	mockService.AssertNotCalled(t, "Update")
+}

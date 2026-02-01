@@ -355,3 +355,117 @@ func TestProductHandler_HandleProductByID_AllMethods(t *testing.T) {
 		})
 	}
 }
+
+// Validation tests
+func TestProductHandler_Create_ValidationErrors(t *testing.T) {
+	tests := []struct {
+		name         string
+		product      models.Product
+		expectedCode int
+	}{
+		{
+			name:         "Empty name",
+			product:      models.Product{Name: "", Price: 1000, Stock: 10, CategoryID: 1},
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "Zero category ID",
+			product:      models.Product{Name: "Valid", Price: 1000, Stock: 10, CategoryID: 0},
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "Negative price",
+			product:      models.Product{Name: "Valid", Price: -100, Stock: 10, CategoryID: 1},
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "Zero price",
+			product:      models.Product{Name: "Valid", Price: 0, Stock: 10, CategoryID: 1},
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "Negative stock",
+			product:      models.Product{Name: "Valid", Price: 1000, Stock: -5, CategoryID: 1},
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "Zero stock",
+			product:      models.Product{Name: "Valid", Price: 1000, Stock: 0, CategoryID: 1},
+			expectedCode: http.StatusBadRequest,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockService := new(mocks.ProductServiceMock)
+			handler := NewProductHandler(mockService)
+
+			body, _ := json.Marshal(tt.product)
+			req := httptest.NewRequest(http.MethodPost, "/products", bytes.NewBuffer(body))
+			w := httptest.NewRecorder()
+
+			handler.Create(w, req)
+
+			assert.Equal(t, tt.expectedCode, w.Code)
+			mockService.AssertNotCalled(t, "Create")
+		})
+	}
+}
+
+func TestProductHandler_Update_ValidationErrors(t *testing.T) {
+	tests := []struct {
+		name         string
+		product      models.Product
+		expectedCode int
+	}{
+		{
+			name:         "Empty name",
+			product:      models.Product{Name: "", Price: 1000, Stock: 10, CategoryID: 1},
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "Zero category ID",
+			product:      models.Product{Name: "Valid", Price: 1000, Stock: 10, CategoryID: 0},
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "Negative price",
+			product:      models.Product{Name: "Valid", Price: -100, Stock: 10, CategoryID: 1},
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "Zero price",
+			product:      models.Product{Name: "Valid", Price: 0, Stock: 10, CategoryID: 1},
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "Negative stock",
+			product:      models.Product{Name: "Valid", Price: 1000, Stock: -5, CategoryID: 1},
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "Zero stock",
+			product:      models.Product{Name: "Valid", Price: 1000, Stock: 0, CategoryID: 1},
+			expectedCode: http.StatusBadRequest,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockService := new(mocks.ProductServiceMock)
+			handler := NewProductHandler(mockService)
+
+			mux := http.NewServeMux()
+			mux.HandleFunc("PUT /products/{id}", handler.HandleProductByID)
+
+			body, _ := json.Marshal(tt.product)
+			req := httptest.NewRequest(http.MethodPut, "/products/1", bytes.NewBuffer(body))
+			w := httptest.NewRecorder()
+
+			mux.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.expectedCode, w.Code)
+			mockService.AssertNotCalled(t, "Update")
+		})
+	}
+}
