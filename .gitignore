@@ -54,3 +54,9 @@ task.todo
 
 # ===== AI =====
 QWEN.md
+-e 
+# ===== Test Coverage Files =====
+cover.out
+coverage.out
+coverage.html
+coverage.svg
