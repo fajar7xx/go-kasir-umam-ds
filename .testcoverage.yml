@@ -1,0 +1,26 @@
+# Coverage profile file
+profile: cover.out
+
+# (optional) "Set of rules for files"
+rules:
+  # All files should have at least 80% coverage
+  - name: "Business logic must have high coverage"
+    threshold: 80
+
+# Thresholds
+threshold:
+  # Minimum coverage per file (80%)
+  file: 80
+
+  # Minimum coverage per package (80%)
+  package: 80
+
+  # Total coverage across measured packages (67% based on current state)
+  # This includes handlers, services, repositories, and utils only
+  # Excludes: main, config, database, mocks
+  total: 67
+
+# Badge configuration (optional, untuk README)
+badge:
+  # File name for coverage badge
+  file-name: coverage.svg
