@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fajar7xx/go-kasir-umam-ds/internal/mocks"
@@ -381,6 +382,88 @@ func TestCategoryHandler_Update_EmptyName(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 	mockService.AssertNotCalled(t, "Update")
+}
+
+// Context timeout tests
+func TestCategoryHandler_GetAll_Timeout(t *testing.T) {
+	mockService := new(mocks.CategoryServiceMock)
+	handler := NewCategoryHandler(mockService)
+
+	mockService.On("GetAll", mock.Anything).Return(nil, context.DeadlineExceeded)
+
+	req := httptest.NewRequest(http.MethodGet, "/categories", nil)
+	w := httptest.NewRecorder()
+
+	handler.GetAll(w, req)
+
+	// When service returns DeadlineExceeded but ctx.Err() is nil, handler returns 500
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+
+	var response utils.ErrorResponse
+	json.NewDecoder(w.Body).Decode(&response)
+	assert.Equal(t, "INTERNAL_ERROR", response.Error.Code)
+
+	mockService.AssertExpectations(t)
+}
+
+func TestCategoryHandler_GetByID_Timeout(t *testing.T) {
+	mockService := new(mocks.CategoryServiceMock)
+	handler := NewCategoryHandler(mockService)
+
+	mockService.On("GetByID", mock.Anything, 1).Return(nil, context.DeadlineExceeded)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /categories/{id}", handler.HandleCategoryByID)
+
+	req := httptest.NewRequest(http.MethodGet, "/categories/1", nil)
+	w := httptest.NewRecorder()
+
+	mux.ServeHTTP(w, req)
+
+	// Returns 404 when GetByID fails (even with timeout error)
+	assert.Equal(t, http.StatusNotFound, w.Code)
+	mockService.AssertExpectations(t)
+}
+
+func TestCategoryHandler_Create_Timeout(t *testing.T) {
+	mockService := new(mocks.CategoryServiceMock)
+	handler := NewCategoryHandler(mockService)
+
+	mockService.On("Create", mock.Anything, mock.AnythingOfType("*models.Category")).Return(nil, context.DeadlineExceeded)
+
+	desc := "Food"
+	category := models.Category{Name: "Food", Description: &desc}
+	body, _ := json.Marshal(category)
+	req := httptest.NewRequest(http.MethodPost, "/categories", bytes.NewBuffer(body))
+	w := httptest.NewRecorder()
+
+	handler.Create(w, req)
+
+	// Returns 400 CREATE_FAILED when ctx.Err() is nil but service returns error
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	mockService.AssertExpectations(t)
+}
+
+func TestCategoryHandler_Update_Timeout(t *testing.T) {
+	mockService := new(mocks.CategoryServiceMock)
+	handler := NewCategoryHandler(mockService)
+
+	mockService.On("Update", mock.Anything, 1, mock.AnythingOfType("*models.Category")).Return(nil, context.DeadlineExceeded)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("PUT /categories/{id}", handler.HandleCategoryByID)
+
+	desc := "Updated"
+	category := models.Category{Name: "Updated", Description: &desc}
+	body, _ := json.Marshal(category)
+	req := httptest.NewRequest(http.MethodPut, "/categories/1", bytes.NewBuffer(body))
+	w := httptest.NewRecorder()
+
+	mux.ServeHTTP(w, req)
+
+	// Returns 400 when Update fails
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	mockService.AssertExpectations(t)
 }
 
 func TestCategoryHandler_GetByID_InvalidID(t *testing.T) {

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fajar7xx/go-kasir-umam-ds/internal/mocks"
@@ -468,4 +469,86 @@ func TestProductHandler_Update_ValidationErrors(t *testing.T) {
 			mockService.AssertNotCalled(t, "Update")
 		})
 	}
+}
+
+// Context timeout tests
+func TestProductHandler_GetAll_Timeout(t *testing.T) {
+	mockService := new(mocks.ProductServiceMock)
+	handler := NewProductHandler(mockService)
+
+	mockService.On("GetAll", mock.Anything).Return(nil, context.DeadlineExceeded)
+
+	req := httptest.NewRequest(http.MethodGet, "/products", nil)
+	w := httptest.NewRecorder()
+
+	handler.GetAll(w, req)
+
+	// Returns 500 when ctx.Err() is nil but service returns error
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+
+	var response utils.ErrorResponse
+	json.NewDecoder(w.Body).Decode(&response)
+	assert.Equal(t, "INTERNAL_ERROR", response.Error.Code)
+
+	mockService.AssertExpectations(t)
+}
+
+func TestProductHandler_GetByID_Timeout(t *testing.T) {
+	mockService := new(mocks.ProductServiceMock)
+	handler := NewProductHandler(mockService)
+
+	mockService.On("GetByID", mock.Anything, 1).Return(nil, context.DeadlineExceeded)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /products/{id}", handler.HandleProductByID)
+
+	req := httptest.NewRequest(http.MethodGet, "/products/1", nil)
+	w := httptest.NewRecorder()
+
+	mux.ServeHTTP(w, req)
+
+	// Returns 404 when GetByID fails
+	assert.Equal(t, http.StatusNotFound, w.Code)
+	mockService.AssertExpectations(t)
+}
+
+func TestProductHandler_Create_Timeout(t *testing.T) {
+	mockService := new(mocks.ProductServiceMock)
+	handler := NewProductHandler(mockService)
+
+	mockService.On("Create", mock.Anything, mock.AnythingOfType("*models.Product")).Return(nil, context.DeadlineExceeded)
+
+	desc := "Product"
+	product := models.Product{Name: "Product", Description: &desc, Price: 15000, Stock: 10, CategoryID: 1}
+	body, _ := json.Marshal(product)
+	req := httptest.NewRequest(http.MethodPost, "/products", bytes.NewBuffer(body))
+	w := httptest.NewRecorder()
+
+	handler.Create(w, req)
+
+	// Returns 400 CREATE_FAILED when ctx.Err() is nil but service returns error
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	mockService.AssertExpectations(t)
+}
+
+func TestProductHandler_Update_Timeout(t *testing.T) {
+	mockService := new(mocks.ProductServiceMock)
+	handler := NewProductHandler(mockService)
+
+	mockService.On("Update", mock.Anything, 1, mock.AnythingOfType("*models.Product")).Return(nil, context.DeadlineExceeded)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("PUT /products/{id}", handler.HandleProductByID)
+
+	desc := "Updated"
+	product := models.Product{Name: "Updated", Description: &desc, Price: 20000, Stock: 15, CategoryID: 1}
+	body, _ := json.Marshal(product)
+	req := httptest.NewRequest(http.MethodPut, "/products/1", bytes.NewBuffer(body))
+	w := httptest.NewRecorder()
+
+	mux.ServeHTTP(w, req)
+
+	// Returns 400 UPDATE_FAILED when ctx.Err() is nil but service returns error
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	mockService.AssertExpectations(t)
 }
