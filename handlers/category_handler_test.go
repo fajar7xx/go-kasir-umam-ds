@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fajar7xx/go-kasir-umam-ds/internal/mocks"
 	"fajar7xx/go-kasir-umam-ds/models"
+	"fajar7xx/go-kasir-umam-ds/utils"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -20,11 +21,11 @@ func TestCategoryHandler_GetAll(t *testing.T) {
 	handler := NewCategoryHandler(mockService)
 
 	now := time.Now()
-	expectedCategories := []models.Category{
+	expectedCategories := []models.CategoryResponse{
 		{ID: 1, Name: "Food", CreatedAt: now},
 	}
 
-	mockService.On("GetAll").Return(expectedCategories, nil)
+	mockService.On("GetAll", mock.Anything).Return(expectedCategories, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/categories", nil)
 	w := httptest.NewRecorder()
@@ -47,7 +48,7 @@ func TestCategoryHandler_GetAll_Error(t *testing.T) {
 	mockService := new(mocks.CategoryServiceMock)
 	handler := NewCategoryHandler(mockService)
 
-	mockService.On("GetAll").Return(nil, errors.New("db error"))
+	mockService.On("GetAll", mock.Anything).Return(nil, errors.New("db error"))
 
 	req := httptest.NewRequest(http.MethodGet, "/categories", nil)
 	w := httptest.NewRecorder()
@@ -63,9 +64,9 @@ func TestCategoryHandler_GetByID(t *testing.T) {
 	handler := NewCategoryHandler(mockService)
 
 	now := time.Now()
-	expectedCategory := &models.Category{ID: 1, Name: "Food", CreatedAt: now}
+	expectedCategory := &models.CategoryResponse{ID: 1, Name: "Food", CreatedAt: now}
 
-	mockService.On("GetByID", 1).Return(expectedCategory, nil)
+	mockService.On("GetByID", mock.Anything, 1).Return(expectedCategory, nil)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /categories/{id}", handler.GetByID)
@@ -90,7 +91,7 @@ func TestCategoryHandler_GetByID_NotFound(t *testing.T) {
 	mockService := new(mocks.CategoryServiceMock)
 	handler := NewCategoryHandler(mockService)
 
-	mockService.On("GetByID", 1).Return(nil, errors.New("not found"))
+	mockService.On("GetByID", mock.Anything, 1).Return(nil, errors.New("not found"))
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /categories/{id}", handler.GetByID)
@@ -108,9 +109,11 @@ func TestCategoryHandler_Create(t *testing.T) {
 	mockService := new(mocks.CategoryServiceMock)
 	handler := NewCategoryHandler(mockService)
 
-	newCategory := models.Category{Name: "Food", Description: "Tasty"}
+	desc := "Tasty"
+	newCategory := models.Category{Name: "Food", Description: &desc}
+	expectedResponse := &models.CategoryResponse{ID: 1, Name: "Food", Description: &desc}
 
-	mockService.On("Create", mock.AnythingOfType("*models.Category")).Return(nil)
+	mockService.On("Create", mock.Anything, mock.AnythingOfType("*models.Category")).Return(expectedResponse, nil)
 
 	body, _ := json.Marshal(newCategory)
 	req := httptest.NewRequest(http.MethodPost, "/categories", bytes.NewBuffer(body))
@@ -139,8 +142,8 @@ func TestCategoryHandler_Update(t *testing.T) {
 	mockService := new(mocks.CategoryServiceMock)
 	handler := NewCategoryHandler(mockService)
 
-	updatedCategory := &models.Category{Name: "Food Updated"}
-	mockService.On("Update", 1, mock.AnythingOfType("*models.Category")).Return(updatedCategory, nil)
+	updatedCategory := &models.CategoryResponse{Name: "Food Updated"}
+	mockService.On("Update", mock.Anything, 1, mock.AnythingOfType("*models.Category")).Return(updatedCategory, nil)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("PUT /categories/{id}", handler.Update)
@@ -159,7 +162,7 @@ func TestCategoryHandler_Update_Error(t *testing.T) {
 	mockService := new(mocks.CategoryServiceMock)
 	handler := NewCategoryHandler(mockService)
 
-	mockService.On("Update", 1, mock.AnythingOfType("*models.Category")).Return(nil, errors.New("failed"))
+	mockService.On("Update", mock.Anything, 1, mock.AnythingOfType("*models.Category")).Return(nil, errors.New("failed"))
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("PUT /categories/{id}", handler.Update)
@@ -178,7 +181,7 @@ func TestCategoryHandler_Delete(t *testing.T) {
 	mockService := new(mocks.CategoryServiceMock)
 	handler := NewCategoryHandler(mockService)
 
-	mockService.On("Delete", 1).Return(nil)
+	mockService.On("Delete", mock.Anything, 1).Return(nil)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("DELETE /categories/{id}", handler.Delete)
@@ -196,7 +199,7 @@ func TestCategoryHandler_Delete_Error(t *testing.T) {
 	mockService := new(mocks.CategoryServiceMock)
 	handler := NewCategoryHandler(mockService)
 
-	mockService.On("Delete", 1).Return(errors.New("failed"))
+	mockService.On("Delete", mock.Anything, 1).Return(errors.New("failed"))
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("DELETE /categories/{id}", handler.Delete)
@@ -208,4 +211,135 @@ func TestCategoryHandler_Delete_Error(t *testing.T) {
 
 	resp := w.Result()
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+// Router dispatch tests
+func TestCategoryHandler_HandleCategories_GetMethod(t *testing.T) {
+	mockService := new(mocks.CategoryServiceMock)
+	handler := NewCategoryHandler(mockService)
+
+	expectedCategories := []models.CategoryResponse{}
+	mockService.On("GetAll", mock.Anything).Return(expectedCategories, nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/categories", nil)
+	w := httptest.NewRecorder()
+
+	handler.HandleCategories(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	mockService.AssertExpectations(t)
+}
+
+func TestCategoryHandler_HandleCategories_PostMethod(t *testing.T) {
+	mockService := new(mocks.CategoryServiceMock)
+	handler := NewCategoryHandler(mockService)
+
+	desc := "Food Category"
+	category := &models.Category{Name: "Food", Description: &desc}
+	expectedResponse := &models.CategoryResponse{ID: 1, Name: "Food", Description: &desc}
+	mockService.On("Create", mock.Anything, mock.AnythingOfType("*models.Category")).Return(expectedResponse, nil)
+
+	body, _ := json.Marshal(category)
+	req := httptest.NewRequest(http.MethodPost, "/categories", bytes.NewBuffer(body))
+	w := httptest.NewRecorder()
+
+	handler.HandleCategories(w, req)
+
+	assert.Equal(t, http.StatusCreated, w.Code)
+	mockService.AssertExpectations(t)
+}
+
+func TestCategoryHandler_HandleCategories_MethodNotAllowed(t *testing.T) {
+	mockService := new(mocks.CategoryServiceMock)
+	handler := NewCategoryHandler(mockService)
+
+	req := httptest.NewRequest(http.MethodDelete, "/categories", nil)
+	w := httptest.NewRecorder()
+
+	handler.HandleCategories(w, req)
+
+	assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+
+	var response utils.ErrorResponse
+	json.NewDecoder(w.Body).Decode(&response)
+	assert.Equal(t, "METHOD_NOT_ALLOWED", response.Error.Code)
+}
+
+func TestCategoryHandler_HandleCategoryByID_AllMethods(t *testing.T) {
+	tests := []struct {
+		name           string
+		method         string
+		setupMock      func(*mocks.CategoryServiceMock)
+		expectedStatus int
+	}{
+		{
+			name:   "GET method",
+			method: http.MethodGet,
+			setupMock: func(m *mocks.CategoryServiceMock) {
+				m.On("GetByID", mock.Anything, 1).Return(&models.CategoryResponse{ID: 1, Name: "Food"}, nil)
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:   "PUT method",
+			method: http.MethodPut,
+			setupMock: func(m *mocks.CategoryServiceMock) {
+				m.On("Update", mock.Anything, 1, mock.AnythingOfType("*models.Category")).Return(&models.CategoryResponse{ID: 1, Name: "Updated"}, nil)
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:   "PATCH method",
+			method: http.MethodPatch,
+			setupMock: func(m *mocks.CategoryServiceMock) {
+				m.On("Update", mock.Anything, 1, mock.AnythingOfType("*models.Category")).Return(&models.CategoryResponse{ID: 1, Name: "Updated"}, nil)
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:   "DELETE method",
+			method: http.MethodDelete,
+			setupMock: func(m *mocks.CategoryServiceMock) {
+				m.On("Delete", mock.Anything, 1).Return(nil)
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "Method not allowed",
+			method:         http.MethodPost,
+			setupMock:      func(m *mocks.CategoryServiceMock) {},
+			expectedStatus: http.StatusMethodNotAllowed,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockService := new(mocks.CategoryServiceMock)
+			handler := NewCategoryHandler(mockService)
+			tt.setupMock(mockService)
+
+			mux := http.NewServeMux()
+			mux.HandleFunc("GET /categories/{id}", handler.HandleCategoryByID)
+			mux.HandleFunc("PUT /categories/{id}", handler.HandleCategoryByID)
+			mux.HandleFunc("PATCH /categories/{id}", handler.HandleCategoryByID)
+			mux.HandleFunc("DELETE /categories/{id}", handler.HandleCategoryByID)
+			mux.HandleFunc("POST /categories/{id}", handler.HandleCategoryByID)
+
+			var req *http.Request
+			if tt.method == http.MethodPut || tt.method == http.MethodPatch {
+				desc := "Updated"
+				category := models.Category{Name: "Updated", Description: &desc}
+				bodyBytes, _ := json.Marshal(category)
+				req = httptest.NewRequest(tt.method, "/categories/1", bytes.NewBuffer(bodyBytes))
+			} else {
+				req = httptest.NewRequest(tt.method, "/categories/1", nil)
+			}
+			w := httptest.NewRecorder()
+
+			mux.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+			mockService.AssertExpectations(t)
+		})
+	}
 }
