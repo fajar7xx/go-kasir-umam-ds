@@ -20,6 +20,38 @@ threshold:
   # Excludes: main, config, database, mocks
   total: 67
 
+# Exclude files/packages that don't need high coverage
+exclude:
+  paths:
+    # Main entry point
+    - ^main\.go$
+
+    # Configuration and constants
+    - ^config/
+
+    # Database initialization
+    - ^internal/database/
+
+    # Test mocks
+    - ^internal/mocks/
+
+    # Data models (structs only)
+    - ^models/
+    - ^internal/models/
+
+    # Generated code
+    - \.pb\.go$
+    - _gen\.go$
+
+    # Migrations
+    - ^migrations/
+
+# (optional) Override for specific files
+override:
+  # If some files legitimately can't reach 80%
+  - threshold: 60
+    path: ^cmd/
+
 # Badge configuration (optional, untuk README)
 badge:
   # File name for coverage badge
