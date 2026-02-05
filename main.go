@@ -1,12 +1,12 @@
 package main
 
 import (
-	"encoding/json"
 	"fajar7xx/go-kasir-umam-ds/config"
 	"fajar7xx/go-kasir-umam-ds/handlers"
 	"fajar7xx/go-kasir-umam-ds/internal/database"
 	"fajar7xx/go-kasir-umam-ds/internal/repositories"
 	"fajar7xx/go-kasir-umam-ds/internal/services"
+	"fajar7xx/go-kasir-umam-ds/utils"
 	"fmt"
 	"log"
 	"net/http"
@@ -49,11 +49,9 @@ func main() {
 
 	// localhost:8080/health
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{
-			"status":  "ok",
-			"message": "API Successfull Running on port: 8080",
-		})
+		utils.SendSuccess(w, map[string]string{
+			"message": fmt.Sprintf("API Successfull Running on port: %d", config.Port),
+		}, http.StatusOK)
 	})
 
 	// GET /api/v1/products

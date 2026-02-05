@@ -5,34 +5,54 @@ import (
 	"database/sql"
 	"errors"
 	"fajar7xx/go-kasir-umam-ds/models"
+	"fmt"
+	"strings"
 )
 
-type CategoryRepositoryInterface interface {
-	GetAll(ctx context.Context) ([]models.CategoryResponse, error)
+type CategoryRepository interface {
+	GetAll(ctx context.Context, name string) ([]models.CategoryResponse, error)
 	GetByID(ctx context.Context, id int) (*models.CategoryResponse, error)
 	Create(ctx context.Context, category *models.Category) (*models.CategoryResponse, error)
 	Update(ctx context.Context, id int, category *models.Category) error
 	Delete(ctx context.Context, id int) error
 }
 
-type CategoryRepository struct {
+type categoryRepository struct {
 	db *sql.DB
 }
 
-func NewCategoryRepository(db *sql.DB) CategoryRepositoryInterface {
-	return &CategoryRepository{
+func NewCategoryRepository(db *sql.DB) CategoryRepository {
+	return &categoryRepository{
 		db: db,
 	}
 }
 
-func (repo *CategoryRepository) GetAll(ctx context.Context) ([]models.CategoryResponse, error) {
-	query := `SELECT
+func (repo *categoryRepository) GetAll(ctx context.Context, name string) ([]models.CategoryResponse, error) {
+	baseQuery := `SELECT
 				id, name, description, created_at, updated_at
 				FROM categories`
 
-	rows, err := repo.db.QueryContext(ctx, query)
+	// dynamimc where building
+	var conditions []string
+	var args []interface{}
+	paramCount := 1
+
+	if name != "" {
+		conditions = append(conditions, fmt.Sprintf("name ILIKE $%d", paramCount))
+		args = append(args, "%"+name+"%")
+		paramCount++
+	}
+
+	// construct final query
+	query := baseQuery
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+	query += " ORDER BY created_at DESC"
+
+	rows, err := repo.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to query categories: %w", err)
 	}
 	defer rows.Close()
 
@@ -48,20 +68,20 @@ func (repo *CategoryRepository) GetAll(ctx context.Context) ([]models.CategoryRe
 		)
 
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to scan category row: %w", err)
 		}
 
 		categories = append(categories, category)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error during row iteration %w", err)
 	}
 
 	return categories, nil
 }
 
-func (repo *CategoryRepository) GetByID(ctx context.Context, id int) (*models.CategoryResponse, error) {
+func (repo *categoryRepository) GetByID(ctx context.Context, id int) (*models.CategoryResponse, error) {
 	query := `SELECT
 				id, name, description, created_at, updated_at
 			FROM categories
@@ -85,7 +105,7 @@ func (repo *CategoryRepository) GetByID(ctx context.Context, id int) (*models.Ca
 	return &category, nil
 }
 
-func (repo *CategoryRepository) Create(ctx context.Context, category *models.Category) (*models.CategoryResponse, error) {
+func (repo *categoryRepository) Create(ctx context.Context, category *models.Category) (*models.CategoryResponse, error) {
 	query := `INSERT INTO categories
 				(name, description)
 				VALUES
@@ -107,7 +127,7 @@ func (repo *CategoryRepository) Create(ctx context.Context, category *models.Cat
 	return repo.GetByID(ctx, category.ID)
 }
 
-func (repo *CategoryRepository) Update(ctx context.Context, id int, category *models.Category) error {
+func (repo *categoryRepository) Update(ctx context.Context, id int, category *models.Category) error {
 	query := `UPDATE categories
 			SET name=$1, description=$2, updated_at=NOW()
 			WHERE id=$3`
@@ -133,7 +153,7 @@ func (repo *CategoryRepository) Update(ctx context.Context, id int, category *mo
 	return nil
 }
 
-func (repo *CategoryRepository) Delete(ctx context.Context, id int) error {
+func (repo *categoryRepository) Delete(ctx context.Context, id int) error {
 	query := `DELETE FROM categories where id=$1`
 	result, err := repo.db.ExecContext(ctx, query, id)
 	if err != nil {

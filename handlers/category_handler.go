@@ -6,18 +6,20 @@ import (
 	"fajar7xx/go-kasir-umam-ds/internal/services"
 	"fajar7xx/go-kasir-umam-ds/models"
 	"fajar7xx/go-kasir-umam-ds/utils"
+	"fmt"
+	"log"
 	"net/http"
-	"time"
+	"strings"
 )
 
 // categoryHandler mengelola semua endpoint
 type CategoryHandler struct {
 	// nanti bisa ditambah dependency seperti DB, logger, dll
-	categoryService services.CategoryServiceInterface
+	categoryService services.CategoryService
 }
 
 // newCategoryHandler membuat instance baru CategoryHandler
-func NewCategoryHandler(categoryService services.CategoryServiceInterface) *CategoryHandler {
+func NewCategoryHandler(categoryService services.CategoryService) *CategoryHandler {
 	return &CategoryHandler{
 		categoryService: categoryService,
 	}
@@ -48,16 +50,20 @@ func (h *CategoryHandler) HandleCategoryByID(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *CategoryHandler) GetAll(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
 	defer cancel()
 
-	categories, err := h.categoryService.GetAll(ctx)
+	queryParams := r.URL.Query()
+	name := strings.TrimSpace(queryParams.Get("name"))
+
+	categories, err := h.categoryService.GetAll(ctx, name)
 	if err != nil {
+		log.Printf("Get all categories error: %v", err)
 		if ctx.Err() == context.DeadlineExceeded {
 			utils.SendError(w, "TIMEOUT_ERROR", "request timeout", http.StatusGatewayTimeout)
 			return
 		}
-		utils.SendError(w, "INTERNAL_ERROR", err.Error(), http.StatusInternalServerError)
+		utils.SendError(w, "INTERNAL_ERROR", "Failed to get categories", http.StatusInternalServerError)
 		return
 	}
 
@@ -71,11 +77,12 @@ func (h *CategoryHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
 	defer cancel()
 
 	category, err := h.categoryService.GetByID(ctx, id)
 	if err != nil {
+		log.Printf("Get category by ID(%d) error: %v", id, err)
 		if ctx.Err() == context.DeadlineExceeded {
 			utils.SendError(w, "TIMEOUT_ERROR", "request timeout", http.StatusGatewayTimeout)
 			return
@@ -97,21 +104,23 @@ func (h *CategoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	// simple validation
-	if newCategory.Name == "" {
-		utils.SendError(w, "INVALID_REQUEST", "category name is required", http.StatusBadRequest)
+	if err := validateCategory(&newCategory); err != nil {
+		utils.SendError(w, "INVALID_REQUEST", err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
 	defer cancel()
 
 	createdCategory, err := h.categoryService.Create(ctx, &newCategory)
 	if err != nil {
+		log.Printf("failed to create category: %v", err)
+
 		if ctx.Err() == context.DeadlineExceeded {
 			utils.SendError(w, "TIMEOUT_ERROR", "request timeout", http.StatusGatewayTimeout)
 			return
 		}
-		utils.SendError(w, "CREATE_FAILED", err.Error(), http.StatusBadRequest)
+		utils.SendError(w, "CREATE_FAILED", "Failed to create category", http.StatusBadRequest)
 		return
 	}
 
@@ -134,21 +143,23 @@ func (h *CategoryHandler) Update(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	// simple validation
-	if category.Name == "" {
-		utils.SendError(w, "INVALID_REQUEST", "category name is required", http.StatusBadRequest)
+	if err := validateCategory(&category); err != nil {
+		utils.SendError(w, "INVALID_REQUEST", err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
 	defer cancel()
 
 	updatedCategory, err := h.categoryService.Update(ctx, id, &category)
 	if err != nil {
+		log.Printf("Error updating categoryId(%d): %v", id, err)
+
 		if ctx.Err() == context.DeadlineExceeded {
 			utils.SendError(w, "TIMEOUT_ERROR", "request timeout", http.StatusGatewayTimeout)
 			return
 		}
-		utils.SendError(w, "UPDATE_FAILED", err.Error(), http.StatusBadRequest)
+		utils.SendError(w, "UPDATE_FAILED", "Failed to update category", http.StatusBadRequest)
 		return
 	}
 
@@ -162,20 +173,34 @@ func (h *CategoryHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
 	defer cancel()
 
 	err = h.categoryService.Delete(ctx, id)
 	if err != nil {
+		log.Printf("Delete Category(%d) error: %v", id, err)
+
 		if ctx.Err() == context.DeadlineExceeded {
 			utils.SendError(w, "TIMEOUT_ERROR", "request timeout", http.StatusGatewayTimeout)
 			return
 		}
-		utils.SendError(w, "DELETE_FAILED", err.Error(), http.StatusBadRequest)
+		utils.SendError(w, "DELETE_FAILED", "Failed to delete category", http.StatusBadRequest)
 		return
 	}
 
 	utils.SendSuccess(w, map[string]string{
 		"message": "category successfully deleted",
 	}, http.StatusOK)
+}
+
+func validateCategory(category *models.Category) error {
+	if category.Name == "" {
+		return fmt.Errorf("category name is required")
+	}
+
+	if len(category.Name) > maxNameLength {
+		return fmt.Errorf("category name is too long")
+	}
+
+	return nil
 }

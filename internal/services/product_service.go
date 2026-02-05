@@ -8,8 +8,8 @@ import (
 
 // 1. Definisikan Interface Service (KONTRAK)
 // Ini yang akan dipanggil oleh Handler nantinya.
-type ProductServiceInterface interface {
-	GetAll(ctx context.Context) ([]models.ProductResponse, error)
+type ProductService interface {
+	GetAll(ctx context.Context, name string) ([]models.ProductResponse, error)
 	GetByID(ctx context.Context, id int) (*models.ProductResponse, error)
 	Create(ctx context.Context, product *models.Product) (*models.ProductResponse, error)
 	Update(ctx context.Context, id int, product *models.Product) (*models.ProductResponse, error)
@@ -17,11 +17,11 @@ type ProductServiceInterface interface {
 }
 
 // 2. Struct Implementasi (Concrete)
-type ProductService struct {
+type productService struct {
 	// productRepo *repositories.ProductRepository
 	// BEST PRACTICE: Gunakan Interface, bukan struct konkret (*ProductRepository).
 	// Ini memungkinkan kita mengganti repo dengan Mock saat Unit Testing.
-	productRepo repositories.ProductRepositoryInterface
+	productRepo repositories.ProductRepository
 }
 
 // 3. Constructor
@@ -32,25 +32,25 @@ type ProductService struct {
 //			productRepo: productRepo,
 //		}
 //	}
-func NewProductService(productRepo repositories.ProductRepositoryInterface) ProductServiceInterface {
-	return &ProductService{
+func NewProductService(productRepo repositories.ProductRepository) ProductService {
+	return &productService{
 		productRepo: productRepo,
 	}
 }
 
-func (serv *ProductService) GetAll(ctx context.Context) ([]models.ProductResponse, error) {
-	return serv.productRepo.GetAll(ctx)
+func (serv *productService) GetAll(ctx context.Context, name string) ([]models.ProductResponse, error) {
+	return serv.productRepo.GetAll(ctx, name)
 }
 
-func (serv *ProductService) GetByID(ctx context.Context, id int) (*models.ProductResponse, error) {
+func (serv *productService) GetByID(ctx context.Context, id int) (*models.ProductResponse, error) {
 	return serv.productRepo.GetByID(ctx, id)
 }
 
-func (serv *ProductService) Create(ctx context.Context, product *models.Product) (*models.ProductResponse, error) {
+func (serv *productService) Create(ctx context.Context, product *models.Product) (*models.ProductResponse, error) {
 	return serv.productRepo.Create(ctx, product)
 }
 
-func (serv *ProductService) Update(ctx context.Context, id int, product *models.Product) (*models.ProductResponse, error) {
+func (serv *productService) Update(ctx context.Context, id int, product *models.Product) (*models.ProductResponse, error) {
 	err := serv.productRepo.Update(ctx, id, product)
 	if err != nil {
 		return nil, err
@@ -64,6 +64,6 @@ func (serv *ProductService) Update(ctx context.Context, id int, product *models.
 	return updatedProduct, nil
 }
 
-func (serv *ProductService) Delete(ctx context.Context, id int) error {
+func (serv *productService) Delete(ctx context.Context, id int) error {
 	return serv.productRepo.Delete(ctx, id)
 }

@@ -10,7 +10,7 @@ A simple yet robust cashier application written in Go, providing a REST API for 
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone git@github.com:fajar7xx/go-kasir-umam-ds.git
 cd go-kasir-umam-ds
 
 # Run the application
@@ -46,16 +46,8 @@ go run main.go
 ├── models/                    # Data structures
 ├── utils/                     # Utility functions
 ├── config/                    # Configuration
-├── docs/                      # 📚 All documentation lives here
-│   ├── README.md             # Documentation index
-│   ├── architecture/         # Architecture docs
-│   ├── api/                  # API docs
-│   ├── guides/               # How-to guides
-│   ├── coverage/             # Test coverage
-│   └── plans/                # Implementation plans
 ├── Makefile                   # Build and test commands
 ├── .testcoverage.yml         # Coverage thresholds
-└── CLAUDE.md                  # AI assistant rules
 
 ```
 
