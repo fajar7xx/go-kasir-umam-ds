@@ -11,8 +11,8 @@ type ProductServiceMock struct {
 	mock.Mock
 }
 
-func (m *ProductServiceMock) GetAll(ctx context.Context) ([]models.ProductResponse, error) {
-	args := m.Called(ctx)
+func (m *ProductServiceMock) GetAll(ctx context.Context, name string) ([]models.ProductResponse, error) {
+	args := m.Called(ctx, name)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

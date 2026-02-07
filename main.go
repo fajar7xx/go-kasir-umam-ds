@@ -47,6 +47,10 @@ func main() {
 	categoryService := services.NewCategoryService(categoryRepository)
 	categoryHandler := handlers.NewCategoryHandler(categoryService)
 
+	transactionRepository := repositories.NewTransactionRepository(db)
+	transactionService := services.NewTrasactionService(transactionRepository)
+	transactionHandler := handlers.NewTransactionHandler(transactionService)
+
 	// localhost:8080/health
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		utils.SendSuccess(w, map[string]string{
@@ -71,6 +75,9 @@ func main() {
 	// put /api/v1/categories/{id}
 	// delete /api/v1/categories/{id}
 	http.HandleFunc("/api/v1/categories/{id}", categoryHandler.HandleCategoryByID)
+
+	// post /api/v1/checkout
+	http.HandleFunc("/api/v1/checkout", transactionHandler.HandleCheckout)
 
 	addr := "0.0.0.0:" + config.Port
 	fmt.Println("Server running on", addr)

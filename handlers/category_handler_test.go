@@ -26,7 +26,7 @@ func TestCategoryHandler_GetAll(t *testing.T) {
 		{ID: 1, Name: "Food", CreatedAt: now},
 	}
 
-	mockService.On("GetAll", mock.Anything).Return(expectedCategories, nil)
+	mockService.On("GetAll", mock.Anything, mock.Anything).Return(expectedCategories, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/categories", nil)
 	w := httptest.NewRecorder()
@@ -49,7 +49,7 @@ func TestCategoryHandler_GetAll_Error(t *testing.T) {
 	mockService := new(mocks.CategoryServiceMock)
 	handler := NewCategoryHandler(mockService)
 
-	mockService.On("GetAll", mock.Anything).Return(nil, errors.New("db error"))
+	mockService.On("GetAll", mock.Anything, mock.Anything).Return(nil, errors.New("db error"))
 
 	req := httptest.NewRequest(http.MethodGet, "/categories", nil)
 	w := httptest.NewRecorder()
@@ -220,7 +220,7 @@ func TestCategoryHandler_HandleCategories_GetMethod(t *testing.T) {
 	handler := NewCategoryHandler(mockService)
 
 	expectedCategories := []models.CategoryResponse{}
-	mockService.On("GetAll", mock.Anything).Return(expectedCategories, nil)
+	mockService.On("GetAll", mock.Anything, mock.Anything).Return(expectedCategories, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/categories", nil)
 	w := httptest.NewRecorder()
@@ -389,7 +389,7 @@ func TestCategoryHandler_GetAll_Timeout(t *testing.T) {
 	mockService := new(mocks.CategoryServiceMock)
 	handler := NewCategoryHandler(mockService)
 
-	mockService.On("GetAll", mock.Anything).Return(nil, context.DeadlineExceeded)
+	mockService.On("GetAll", mock.Anything, mock.Anything).Return(nil, context.DeadlineExceeded)
 
 	req := httptest.NewRequest(http.MethodGet, "/categories", nil)
 	w := httptest.NewRecorder()

@@ -21,9 +21,9 @@ func TestCategoryService_GetAll(t *testing.T) {
 		{ID: 2, Name: "Beverage", CreatedAt: now},
 	}
 
-	mockRepo.On("GetAll", context.Background()).Return(expectedCategories, nil)
+	mockRepo.On("GetAll", context.Background(), "").Return(expectedCategories, nil)
 
-	categories, err := service.GetAll(context.Background())
+	categories, err := service.GetAll(context.Background(), "")
 
 	assert.NoError(t, err)
 	assert.Len(t, categories, 2)
@@ -35,9 +35,9 @@ func TestCategoryService_GetAll_Error(t *testing.T) {
 	mockRepo := new(mocks.CategoryRepositoryMock)
 	service := NewCategoryService(mockRepo)
 
-	mockRepo.On("GetAll", context.Background()).Return(nil, errors.New("database error"))
+	mockRepo.On("GetAll", context.Background(), "").Return(nil, errors.New("database error"))
 
-	categories, err := service.GetAll(context.Background())
+	categories, err := service.GetAll(context.Background(), "")
 
 	assert.Error(t, err)
 	assert.Nil(t, categories)
