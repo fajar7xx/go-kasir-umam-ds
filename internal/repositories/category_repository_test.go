@@ -32,7 +32,7 @@ func TestCategoryRepository_GetAll(t *testing.T) {
 	query := regexp.QuoteMeta(`SELECT id, name, description, created_at, updated_at FROM categories`)
 	mock.ExpectQuery(query).WillReturnRows(rows)
 
-	categories, err := repo.GetAll(context.Background())
+	categories, err := repo.GetAll(context.Background(), "")
 
 	assert.NoError(t, err)
 	assert.Len(t, categories, 2)
@@ -52,7 +52,7 @@ func TestCategoryRepository_GetAll_Error(t *testing.T) {
 	query := regexp.QuoteMeta(`SELECT id, name, description, created_at, updated_at FROM categories`)
 	mock.ExpectQuery(query).WillReturnError(sql.ErrConnDone)
 
-	categories, err := repo.GetAll(context.Background())
+	categories, err := repo.GetAll(context.Background(), "")
 
 	assert.Error(t, err)
 	assert.Nil(t, categories)
@@ -250,7 +250,7 @@ func TestCategoryRepository_GetAll_RowsError(t *testing.T) {
 	query := regexp.QuoteMeta(`SELECT id, name, description, created_at, updated_at FROM categories`)
 	mock.ExpectQuery(query).WillReturnRows(rows)
 
-	categories, err := repo.GetAll(context.Background())
+	categories, err := repo.GetAll(context.Background(), "")
 
 	assert.Error(t, err)
 	assert.Nil(t, categories)

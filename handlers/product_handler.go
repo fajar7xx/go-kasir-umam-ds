@@ -6,18 +6,21 @@ import (
 	"fajar7xx/go-kasir-umam-ds/internal/services"
 	"fajar7xx/go-kasir-umam-ds/models"
 	"fajar7xx/go-kasir-umam-ds/utils"
+	"fmt"
+	"log"
 	"net/http"
+	"strings"
 	"time"
 )
 
 // producthandler mengelola semua endpoint
 type ProductHandler struct {
 	// nanti bisa ditambah dependency seperti DB, Logger, dll
-	productService services.ProductServiceInterface
+	productService services.ProductService
 }
 
 // newproducthandler membuat instance baru producthandler
-func NewProductHandler(productService services.ProductServiceInterface) *ProductHandler {
+func NewProductHandler(productService services.ProductService) *ProductHandler {
 	return &ProductHandler{
 		productService: productService,
 	}
@@ -49,16 +52,25 @@ func (h *ProductHandler) HandleProductByID(w http.ResponseWriter, r *http.Reques
 
 func (h *ProductHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	// Buat context dengan timeout 5 detik
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
 	defer cancel()
 
-	products, err := h.productService.GetAll(ctx)
+	// ambil query parameter dari request & sanitize
+	queryParams := r.URL.Query()
+	name := strings.TrimSpace(queryParams.Get("name"))
+	if len(name) > maxNameLength {
+		utils.SendError(w, "INVALID_INPUT", "search query is too long", http.StatusBadRequest)
+		return
+	}
+
+	products, err := h.productService.GetAll(ctx, name)
 	if err != nil {
+		log.Printf("Get all products error: %v", err)
 		if ctx.Err() == context.DeadlineExceeded {
 			utils.SendError(w, "TIMEOUT", "Request timeout", http.StatusGatewayTimeout)
 			return
 		}
-		utils.SendError(w, "INTERNAL_ERROR", err.Error(), http.StatusInternalServerError)
+		utils.SendError(w, "INTERNAL_ERROR", "Failed to get products", http.StatusInternalServerError)
 		return
 	}
 
@@ -72,11 +84,13 @@ func (h *ProductHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
 	defer cancel()
 
 	product, err := h.productService.GetByID(ctx, id)
 	if err != nil {
+		log.Printf("GetByID(%d) error:  %v", id, err)
+
 		if ctx.Err() == context.DeadlineExceeded {
 			utils.SendError(w, "TIMEOUT", "Request timeout", http.StatusGatewayTimeout)
 			return
@@ -100,24 +114,8 @@ func (h *ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// Client requests: Response body WAJIB di-close manual (ini yang sering bikin bingung)
 	defer r.Body.Close()
 
-	// simple validation
-	if newProduct.Name == "" {
-		utils.SendError(w, "VALIDATION_ERROR", "Product name is required", http.StatusBadRequest)
-		return
-	}
-
-	if newProduct.CategoryID == 0 {
-		utils.SendError(w, "VALIDATION_ERROR", "Category ID is required", http.StatusBadRequest)
-		return
-	}
-
-	if newProduct.Price <= 0 {
-		utils.SendError(w, "VALIDATION_ERROR", "Product price must be greater than 0", http.StatusBadRequest)
-		return
-	}
-
-	if newProduct.Stock <= 0 {
-		utils.SendError(w, "VALIDATION_ERROR", "Product stock must be greater than 0", http.StatusBadRequest)
+	if err := validateProduct(&newProduct); err != nil {
+		utils.SendError(w, "VALIDATION_ERROR", err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -128,18 +126,19 @@ func (h *ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// 5*time.Second = timeout maksimal
 	// ctx = context baru yang punya timeout?
 	// cancel = fungsi untuk stop paksa (kalau perlu)
-	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
 	// Artinya: "Apapun yang terjadi, panggil cancel() saat function ini selesai"
 	// Ini wajib untuk cleanup resource (timer, goroutine internal) yang dipakai context
 	defer cancel()
 
 	createdProduct, err := h.productService.Create(ctx, &newProduct)
 	if err != nil {
+		log.Printf("Create product error: %v", err)
 		if ctx.Err() == context.DeadlineExceeded {
 			utils.SendError(w, "TIMEOUT", "Request Timeout", http.StatusGatewayTimeout)
 			return
 		}
-		utils.SendError(w, "CREATE_FAILED", err.Error(), http.StatusBadRequest)
+		utils.SendError(w, "CREATE_FAILED", "Failed to create product", http.StatusBadRequest)
 		return
 	}
 
@@ -162,36 +161,23 @@ func (h *ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	// simple validation
-	if product.Name == "" {
-		utils.SendError(w, "VALIDATION_ERROR", "Product name is required", http.StatusBadRequest)
+	if err := validateProduct(&product); err != nil {
+		utils.SendError(w, "VALIDATION_ERROR", err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	if product.CategoryID == 0 {
-		utils.SendError(w, "VALIDATION_ERROR", "Category ID is required", http.StatusBadRequest)
-		return
-	}
-
-	if product.Price <= 0 {
-		utils.SendError(w, "VALIDATION_ERROR", "Product price must be greater than 0", http.StatusBadRequest)
-		return
-	}
-
-	if product.Stock <= 0 {
-		utils.SendError(w, "VALIDATION_ERROR", "Product stock must be greater than 0", http.StatusBadRequest)
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
 	updatedProduct, err := h.productService.Update(ctx, id, &product)
 	if err != nil {
+		log.Printf("Update product(%d) error: %v", id, err)
+
 		if ctx.Err() == context.DeadlineExceeded {
 			utils.SendError(w, "TIMEOUT_ERROR", "Request timed out", http.StatusRequestTimeout)
 			return
 		}
-		utils.SendError(w, "UPDATE_FAILED", err.Error(), http.StatusBadRequest)
+		utils.SendError(w, "UPDATE_FAILED", "failed to update product", http.StatusBadRequest)
 		return
 	}
 
@@ -205,20 +191,46 @@ func (h *ProductHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
 	defer cancel()
 
 	err = h.productService.Delete(ctx, id)
 	if err != nil {
+		log.Printf("Delete product(%d) error: %v", id, err)
+
 		if ctx.Err() == context.DeadlineExceeded {
 			utils.SendError(w, "TIMEOUT_ERROR", "Request timed out", http.StatusRequestTimeout)
 			return
 		}
-		utils.SendError(w, "DELETE_FAILED", err.Error(), http.StatusBadRequest)
+		utils.SendError(w, "DELETE_FAILED", "failed to delete product", http.StatusBadRequest)
 		return
 	}
 
 	utils.SendSuccess(w, map[string]string{
 		"message": "product successfully deleted",
 	}, http.StatusOK)
+}
+
+func validateProduct(product *models.Product) error {
+	if product.Name == "" {
+		return fmt.Errorf("product name is required")
+	}
+
+	if len(product.Name) > maxNameLength {
+		return fmt.Errorf("product name is too long")
+	}
+
+	if product.CategoryID == 0 {
+		return fmt.Errorf("category ID is required")
+	}
+
+	if product.Price <= 0 {
+		return fmt.Errorf("product price must be greater than 0")
+	}
+
+	if product.Stock <= 0 {
+		return fmt.Errorf("product stock must be greater than 0")
+	}
+
+	return nil
 }

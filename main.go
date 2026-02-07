@@ -1,12 +1,12 @@
 package main
 
 import (
-	"encoding/json"
 	"fajar7xx/go-kasir-umam-ds/config"
 	"fajar7xx/go-kasir-umam-ds/handlers"
 	"fajar7xx/go-kasir-umam-ds/internal/database"
 	"fajar7xx/go-kasir-umam-ds/internal/repositories"
 	"fajar7xx/go-kasir-umam-ds/internal/services"
+	"fajar7xx/go-kasir-umam-ds/utils"
 	"fmt"
 	"log"
 	"net/http"
@@ -15,6 +15,23 @@ import (
 
 	"github.com/spf13/viper"
 )
+
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+
+		// Handle preflight request
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
 
 func main() {
 	// 1. load configuration
@@ -47,13 +64,15 @@ func main() {
 	categoryService := services.NewCategoryService(categoryRepository)
 	categoryHandler := handlers.NewCategoryHandler(categoryService)
 
+	transactionRepository := repositories.NewTransactionRepository(db)
+	transactionService := services.NewTrasactionService(transactionRepository)
+	transactionHandler := handlers.NewTransactionHandler(transactionService)
+
 	// localhost:8080/health
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{
-			"status":  "ok",
-			"message": "API Successfull Running on port: 8080",
-		})
+		utils.SendSuccess(w, map[string]string{
+			"message": fmt.Sprintf("API Successfull Running on port: %s", config.Port),
+		}, http.StatusOK)
 	})
 
 	// GET /api/v1/products
@@ -74,10 +93,14 @@ func main() {
 	// delete /api/v1/categories/{id}
 	http.HandleFunc("/api/v1/categories/{id}", categoryHandler.HandleCategoryByID)
 
+	// post /api/v1/checkout
+	http.HandleFunc("/api/v1/checkout", transactionHandler.HandleCheckout)
+
 	addr := "0.0.0.0:" + config.Port
 	fmt.Println("Server running on", addr)
 
-	err = http.ListenAndServe(addr, nil)
+	// err = http.ListenAndServe(addr, nil)
+	err = http.ListenAndServe(addr, corsMiddleware(http.DefaultServeMux))
 	if err != nil {
 		fmt.Println("Error starting server:", err)
 	}

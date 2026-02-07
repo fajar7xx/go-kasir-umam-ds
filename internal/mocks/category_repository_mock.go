@@ -11,8 +11,8 @@ type CategoryRepositoryMock struct {
 	mock.Mock
 }
 
-func (m *CategoryRepositoryMock) GetAll(ctx context.Context) ([]models.CategoryResponse, error) {
-	args := m.Called(ctx)
+func (m *CategoryRepositoryMock) GetAll(ctx context.Context, name string) ([]models.CategoryResponse, error) {
+	args := m.Called(ctx, name)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

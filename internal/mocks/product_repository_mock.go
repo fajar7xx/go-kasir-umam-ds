@@ -11,8 +11,8 @@ type ProductRepositoryMock struct {
 	mock.Mock
 }
 
-func (m *ProductRepositoryMock) GetAll(ctx context.Context) ([]models.ProductResponse, error) {
-	args := m.Called(ctx)
+func (m *ProductRepositoryMock) GetAll(ctx context.Context, name string) ([]models.ProductResponse, error) {
+	args := m.Called(ctx, name)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

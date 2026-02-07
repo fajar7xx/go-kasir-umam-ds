@@ -5,12 +5,15 @@ import (
 	"database/sql"
 	"errors"
 	"fajar7xx/go-kasir-umam-ds/models"
+	"fmt"
+	"strings"
 )
 
 // 1. ini adalah kontraknya
 // siapapun yang ingin menjadi repository product harus punya 5 kemampuan ini.
-type ProductRepositoryInterface interface {
-	GetAll(ctx context.Context) ([]models.ProductResponse, error)
+// Interface (exported/public)
+type ProductRepository interface {
+	GetAll(ctx context.Context, name string) ([]models.ProductResponse, error)
 	GetByID(ctx context.Context, id int) (*models.ProductResponse, error)
 	Create(ctx context.Context, product *models.Product) (*models.ProductResponse, error)
 	Update(ctx context.Context, id int, product *models.Product) error
@@ -18,20 +21,21 @@ type ProductRepositoryInterface interface {
 }
 
 // 2. ini adalah konkret (si pelakunya)
-type ProductRepository struct {
+// struct (unexported/private)
+type productRepository struct {
 	db *sql.DB
 }
 
 // constructor mengembalikan pointer ke struct,
 // tapi struc ini secara implisit sudahg memenuhi interface diatas
-func NewProductRepository(db *sql.DB) ProductRepositoryInterface {
-	return &ProductRepository{
+func NewProductRepository(db *sql.DB) ProductRepository {
+	return &productRepository{
 		db: db,
 	}
 }
 
-func (repo *ProductRepository) GetAll(ctx context.Context) ([]models.ProductResponse, error) {
-	query := `select
+func (repo *productRepository) GetAll(ctx context.Context, name string) ([]models.ProductResponse, error) {
+	baseQuery := `SELECT
 				  p.id,
 				  p.name,
 				  p.description,
@@ -40,26 +44,42 @@ func (repo *ProductRepository) GetAll(ctx context.Context) ([]models.ProductResp
 				  p.category_id,
 				  p.created_at,
 				  p.updated_at,
-				  c.id as category_id,
-				  c.name as category_name,
-				  c.description as category_description
-				from
+				  c.id,
+				  c.name,
+				  c.description
+				FROM
 				  products p
-				  join categories c on p.category_id = c.id;`
+				  JOIN categories c ON p.category_id = c.id`
+
+	// Dynamic Where Building
+	var conditions []string
+	var args []interface{}
+	paramCount := 1
+
+	if name != "" {
+		conditions = append(conditions, fmt.Sprintf("p.name ILIKE $%d", paramCount))
+		args = append(args, "%"+name+"%")
+		paramCount++
+	}
+
+	// construct final query
+	query := baseQuery
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+	query += " ORDER BY p.created_at DESC"
 
 	// 1. QueryContext - Ambil banyak baris
-	rows, err := repo.db.QueryContext(ctx, query)
+	rows, err := repo.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to query products: %w", err)
 	}
 	defer rows.Close()
 
 	products := make([]models.ProductResponse, 0, 20) //pre allocate capacity
 	for rows.Next() {
 		var p models.ProductResponse
-		var categoryID int
-		var categoryName string
-		var categoryDescription *string
+		var cat models.CategorySummary
 
 		// pastikan urutan scan sesuai dengan urutan select
 		err := rows.Scan(
@@ -71,31 +91,26 @@ func (repo *ProductRepository) GetAll(ctx context.Context) ([]models.ProductResp
 			&p.CategoryID,
 			&p.CreatedAt,
 			&p.UpdatedAt,
-			&categoryID,
-			&categoryName,
-			&categoryDescription)
+			&cat.ID,
+			&cat.Name,
+			&cat.Description)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("Failed to scan product row: %w", err)
 		}
 
-		p.Category = models.CategorySummary{
-			ID:          categoryID,
-			Name:        categoryName,
-			Description: categoryDescription,
-		}
-
+		p.Category = cat
 		products = append(products, p)
 	}
 
 	// Check error yang terjadi selama iterasi rows
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error during row iteration %w", err)
 	}
 
 	return products, nil
 }
 
-func (repo *ProductRepository) GetByID(ctx context.Context, id int) (*models.ProductResponse, error) {
+func (repo *productRepository) GetByID(ctx context.Context, id int) (*models.ProductResponse, error) {
 	query := `select
 				  p.id,
 				  p.name,
@@ -164,7 +179,7 @@ func (repo *ProductRepository) GetByID(ctx context.Context, id int) (*models.Pro
 	return &p, nil
 }
 
-func (repo *ProductRepository) Create(ctx context.Context, product *models.Product) (*models.ProductResponse, error) {
+func (repo *productRepository) Create(ctx context.Context, product *models.Product) (*models.ProductResponse, error) {
 	query := `INSERT INTO products
 				(name, price, stock, description, category_id)
 			VALUES
@@ -203,7 +218,7 @@ func (repo *ProductRepository) Create(ctx context.Context, product *models.Produ
 	return repo.GetByID(ctx, product.ID)
 }
 
-func (repo *ProductRepository) Update(ctx context.Context, id int, product *models.Product) error {
+func (repo *productRepository) Update(ctx context.Context, id int, product *models.Product) error {
 	query := `UPDATE products
 				SET
 				name = $1,
@@ -251,7 +266,7 @@ func (repo *ProductRepository) Update(ctx context.Context, id int, product *mode
 	return nil
 }
 
-func (repo *ProductRepository) Delete(ctx context.Context, id int) error {
+func (repo *productRepository) Delete(ctx context.Context, id int) error {
 	query := `DELETE from products where id = $1`
 
 	// result, err := repo.db.Exec(query, id)

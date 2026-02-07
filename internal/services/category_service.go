@@ -6,37 +6,37 @@ import (
 	"fajar7xx/go-kasir-umam-ds/models"
 )
 
-type CategoryServiceInterface interface {
-	GetAll(ctx context.Context) ([]models.CategoryResponse, error)
+type CategoryService interface {
+	GetAll(ctx context.Context, name string) ([]models.CategoryResponse, error)
 	GetByID(ctx context.Context, id int) (*models.CategoryResponse, error)
 	Create(ctx context.Context, category *models.Category) (*models.CategoryResponse, error)
 	Update(ctx context.Context, id int, category *models.Category) (*models.CategoryResponse, error)
 	Delete(ctx context.Context, id int) error
 }
 
-type CategoryService struct {
-	categoryRepo repositories.CategoryRepositoryInterface
+type categoryService struct {
+	categoryRepo repositories.CategoryRepository
 }
 
-func NewCategoryService(categoryRepo repositories.CategoryRepositoryInterface) CategoryServiceInterface {
-	return &CategoryService{
+func NewCategoryService(categoryRepo repositories.CategoryRepository) CategoryService {
+	return &categoryService{
 		categoryRepo: categoryRepo,
 	}
 }
 
-func (serv *CategoryService) GetAll(ctx context.Context) ([]models.CategoryResponse, error) {
-	return serv.categoryRepo.GetAll(ctx)
+func (serv *categoryService) GetAll(ctx context.Context, name string) ([]models.CategoryResponse, error) {
+	return serv.categoryRepo.GetAll(ctx, name)
 }
 
-func (serv *CategoryService) GetByID(ctx context.Context, id int) (*models.CategoryResponse, error) {
+func (serv *categoryService) GetByID(ctx context.Context, id int) (*models.CategoryResponse, error) {
 	return serv.categoryRepo.GetByID(ctx, id)
 }
 
-func (serv *CategoryService) Create(ctx context.Context, category *models.Category) (*models.CategoryResponse, error) {
+func (serv *categoryService) Create(ctx context.Context, category *models.Category) (*models.CategoryResponse, error) {
 	return serv.categoryRepo.Create(ctx, category)
 }
 
-func (serv *CategoryService) Update(ctx context.Context, id int, category *models.Category) (*models.CategoryResponse, error) {
+func (serv *categoryService) Update(ctx context.Context, id int, category *models.Category) (*models.CategoryResponse, error) {
 	err := serv.categoryRepo.Update(ctx, id, category)
 	if err != nil {
 		return nil, err
@@ -50,6 +50,6 @@ func (serv *CategoryService) Update(ctx context.Context, id int, category *model
 	return updatedCategory, nil
 }
 
-func (serv *CategoryService) Delete(ctx context.Context, id int) error {
+func (serv *categoryService) Delete(ctx context.Context, id int) error {
 	return serv.categoryRepo.Delete(ctx, id)
 }

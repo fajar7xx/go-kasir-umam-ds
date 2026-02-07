@@ -21,9 +21,9 @@ func TestProductService_GetAll(t *testing.T) {
 		{ID: 2, Name: "Es Teh", CreatedAt: now},
 	}
 
-	mockRepo.On("GetAll", context.Background()).Return(expectedProducts, nil)
+	mockRepo.On("GetAll", context.Background(), "").Return(expectedProducts, nil)
 
-	products, err := service.GetAll(context.Background())
+	products, err := service.GetAll(context.Background(), "")
 
 	assert.NoError(t, err)
 	assert.Len(t, products, 2)
@@ -35,9 +35,9 @@ func TestProductService_GetAll_Error(t *testing.T) {
 	mockRepo := new(mocks.ProductRepositoryMock)
 	service := NewProductService(mockRepo)
 
-	mockRepo.On("GetAll", context.Background()).Return(nil, errors.New("database error"))
+	mockRepo.On("GetAll", context.Background(), "").Return(nil, errors.New("database error"))
 
-	products, err := service.GetAll(context.Background())
+	products, err := service.GetAll(context.Background(), "")
 
 	assert.Error(t, err)
 	assert.Nil(t, products)

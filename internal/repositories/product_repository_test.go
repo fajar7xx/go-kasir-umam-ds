@@ -27,7 +27,7 @@ func TestProductRepository_GetAll(t *testing.T) {
 	categoryDesc := "Food Category"
 
 	// Updated query to match actual implementation with JOIN
-	query := regexp.QuoteMeta(`select
+	query := regexp.QuoteMeta(`SELECT
 				  p.id,
 				  p.name,
 				  p.description,
@@ -36,12 +36,13 @@ func TestProductRepository_GetAll(t *testing.T) {
 				  p.category_id,
 				  p.created_at,
 				  p.updated_at,
-				  c.id as category_id,
-				  c.name as category_name,
-				  c.description as category_description
-				from
+				  c.id,
+				  c.name,
+				  c.description
+				FROM
 				  products p
-				  join categories c on p.category_id = c.id;`)
+				  JOIN categories c ON p.category_id = c.id
+				ORDER BY p.created_at DESC`)
 
 	rows := sqlmock.NewRows([]string{
 		"id", "name", "description", "price", "stock", "category_id", "created_at", "updated_at",
@@ -52,7 +53,7 @@ func TestProductRepository_GetAll(t *testing.T) {
 
 	mock.ExpectQuery(query).WillReturnRows(rows)
 
-	products, err := repo.GetAll(context.Background())
+	products, err := repo.GetAll(context.Background(), "")
 
 	assert.NoError(t, err)
 	assert.Len(t, products, 2)
@@ -319,7 +320,7 @@ func TestProductRepository_GetAll_RowsError(t *testing.T) {
 		RowError(0, errors.New("row iteration error"))
 
 	// Match the actual query from product_repository.go (lines 36-47)
-	query := regexp.QuoteMeta(`select
+	query := regexp.QuoteMeta(`SELECT
 				  p.id,
 				  p.name,
 				  p.description,
@@ -328,15 +329,16 @@ func TestProductRepository_GetAll_RowsError(t *testing.T) {
 				  p.category_id,
 				  p.created_at,
 				  p.updated_at,
-				  c.id as category_id,
-				  c.name as category_name,
-				  c.description as category_description
-				from
+				  c.id,
+				  c.name,
+				  c.description
+				FROM
 				  products p
-				  join categories c on p.category_id = c.id;`)
+				  JOIN categories c ON p.category_id = c.id
+				ORDER BY p.created_at DESC`)
 	mock.ExpectQuery(query).WillReturnRows(rows)
 
-	products, err := repo.GetAll(context.Background())
+	products, err := repo.GetAll(context.Background(), "")
 
 	assert.Error(t, err)
 	assert.Nil(t, products)

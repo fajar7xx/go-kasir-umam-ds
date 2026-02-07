@@ -26,7 +26,7 @@ func TestProductHandler_GetAll(t *testing.T) {
 		{ID: 1, Name: "Nasi Goreng", CreatedAt: now},
 	}
 
-	mockService.On("GetAll", mock.Anything).Return(expectedProducts, nil)
+	mockService.On("GetAll", mock.Anything, mock.Anything).Return(expectedProducts, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/products", nil)
 	w := httptest.NewRecorder()
@@ -49,7 +49,7 @@ func TestProductHandler_GetAll_Error(t *testing.T) {
 	mockService := new(mocks.ProductServiceMock)
 	handler := NewProductHandler(mockService)
 
-	mockService.On("GetAll", mock.Anything).Return(nil, errors.New("db error"))
+	mockService.On("GetAll", mock.Anything, mock.Anything).Return(nil, errors.New("db error"))
 
 	req := httptest.NewRequest(http.MethodGet, "/products", nil)
 	w := httptest.NewRecorder()
@@ -220,7 +220,7 @@ func TestProductHandler_HandleProducts_GetMethod(t *testing.T) {
 	handler := NewProductHandler(mockService)
 
 	expectedProducts := []models.ProductResponse{}
-	mockService.On("GetAll", mock.Anything).Return(expectedProducts, nil)
+	mockService.On("GetAll", mock.Anything, mock.Anything).Return(expectedProducts, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/products", nil)
 	w := httptest.NewRecorder()
@@ -476,7 +476,7 @@ func TestProductHandler_GetAll_Timeout(t *testing.T) {
 	mockService := new(mocks.ProductServiceMock)
 	handler := NewProductHandler(mockService)
 
-	mockService.On("GetAll", mock.Anything).Return(nil, context.DeadlineExceeded)
+	mockService.On("GetAll", mock.Anything, mock.Anything).Return(nil, context.DeadlineExceeded)
 
 	req := httptest.NewRequest(http.MethodGet, "/products", nil)
 	w := httptest.NewRecorder()
