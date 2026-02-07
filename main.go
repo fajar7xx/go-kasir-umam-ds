@@ -16,6 +16,23 @@ import (
 	"github.com/spf13/viper"
 )
 
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+
+		// Handle preflight request
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 	// 1. load configuration
 	viper.AutomaticEnv()
@@ -54,7 +71,7 @@ func main() {
 	// localhost:8080/health
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		utils.SendSuccess(w, map[string]string{
-			"message": fmt.Sprintf("API Successfull Running on port: %d", config.Port),
+			"message": fmt.Sprintf("API Successfull Running on port: %s", config.Port),
 		}, http.StatusOK)
 	})
 
@@ -82,7 +99,8 @@ func main() {
 	addr := "0.0.0.0:" + config.Port
 	fmt.Println("Server running on", addr)
 
-	err = http.ListenAndServe(addr, nil)
+	// err = http.ListenAndServe(addr, nil)
+	err = http.ListenAndServe(addr, corsMiddleware(http.DefaultServeMux))
 	if err != nil {
 		fmt.Println("Error starting server:", err)
 	}

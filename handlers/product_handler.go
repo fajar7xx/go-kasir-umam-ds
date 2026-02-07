@@ -228,7 +228,7 @@ func validateProduct(product *models.Product) error {
 		return fmt.Errorf("product price must be greater than 0")
 	}
 
-	if product.Stock < 0 {
+	if product.Stock <= 0 {
 		return fmt.Errorf("product stock must be greater than 0")
 	}
 
