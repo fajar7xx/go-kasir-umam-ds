@@ -118,34 +118,82 @@ func (repo *transactionRepository) CreateTransaction(ctx context.Context, items 
 		return nil, fmt.Errorf("error to insert transaction: %w", err)
 	}
 
-	// insert transaction_details
-	insertTransactionDetailQuery := `INSERT INTO transaction_details
-									(transaction_id, product_id, price, quantity, subtotal)
-									VALUES
-									($1, $2, $3, $4, $5)
-									RETURNING id, created_at, updated_at`
-	for i := range details {
-		details[i].TransactionID = transactionID
+	// insert transaction_details using BATCH INSERT
+	if len(details) > 0 {
+		// Prepare arrays for batch insert
+		txIDs := make([]int, len(details))
+		productIDs := make([]int, len(details))
+		prices := make([]float64, len(details))
+		quantities := make([]int, len(details))
+		subtotals := make([]float64, len(details))
 
-		var detailID int
-		var detailCreatedAt time.Time
-		var detailUpdatedAt *time.Time
-
-		err = tx.QueryRowContext(ctx, insertTransactionDetailQuery,
-			details[i].TransactionID,
-			details[i].ProductID,
-			details[i].Price,
-			details[i].Quantity,
-			details[i].SubTotal,
-		).Scan(&detailID, &detailCreatedAt, &detailUpdatedAt)
-		if err != nil {
-			return nil, fmt.Errorf("error to insert transaction detail: %w", err)
+		for i, detail := range details {
+			txIDs[i] = transactionID
+			productIDs[i] = detail.ProductID
+			prices[i] = detail.Price
+			quantities[i] = detail.Quantity
+			subtotals[i] = detail.SubTotal
 		}
 
-		// Update detail with database values
-		details[i].ID = detailID
-		details[i].CreatedAt = detailCreatedAt
-		details[i].UpdatedAt = detailUpdatedAt
+		// Single batch INSERT using UNNEST
+		insertDetailsQuery := `INSERT INTO transaction_details
+								(transaction_id, product_id, price, quantity, subtotal)
+								SELECT * FROM UNNEST(
+									$1::int[],
+									$2::int[],
+									$3::float8[],
+									$4::int[],
+									$5::float8[]
+								)
+								RETURNING id, transaction_id, product_id, price, quantity, subtotal, created_at, updated_at`
+
+		rows, err := tx.QueryContext(ctx, insertDetailsQuery,
+			pq.Array(txIDs),
+			pq.Array(productIDs),
+			pq.Array(prices),
+			pq.Array(quantities),
+			pq.Array(subtotals),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error to insert transaction details: %w", err)
+		}
+		defer rows.Close()
+
+		// Create map for O(1) product name lookup
+		productNameMap := make(map[int]string, len(details))
+		for _, detail := range details {
+			productNameMap[detail.ProductID] = detail.ProductName
+		}
+
+		// Reconstruct details with database values
+		finalDetails := make([]models.TransactionDetail, 0, len(details))
+		for rows.Next() {
+			var d models.TransactionDetail
+			err := rows.Scan(
+				&d.ID,
+				&d.TransactionID,
+				&d.ProductID,
+				&d.Price,
+				&d.Quantity,
+				&d.SubTotal,
+				&d.CreatedAt,
+				&d.UpdatedAt,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("error scanning transaction detail: %w", err)
+			}
+
+			// Restore product name from map
+			d.ProductName = productNameMap[d.ProductID]
+			finalDetails = append(finalDetails, d)
+		}
+
+		if err = rows.Err(); err != nil {
+			return nil, fmt.Errorf("error iterating transaction details: %w", err)
+		}
+
+		// Replace details with finalDetails containing database values
+		details = finalDetails
 	}
 
 	// commit transaction

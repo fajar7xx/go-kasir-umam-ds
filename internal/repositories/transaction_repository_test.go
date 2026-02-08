@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fajar7xx/go-kasir-umam-ds/models"
+	"fmt"
 	"regexp"
 	"testing"
 	"time"
@@ -53,11 +54,17 @@ func TestTransactionRepository_CreateTransaction_SingleItem(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "created_at", "updated_at"}).
 			AddRow(1, now, now))
 
-	// Expect transaction detail insert
-	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO transaction_details (transaction_id, product_id, price, quantity, subtotal) VALUES ($1, $2, $3, $4, $5) RETURNING id, created_at, updated_at`)).
-		WithArgs(1, 1, 20000.0, 2, 40000.0).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "created_at", "updated_at"}).
-			AddRow(1, now, now))
+	// Expect transaction detail batch insert
+	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO transaction_details (transaction_id, product_id, price, quantity, subtotal) SELECT * FROM UNNEST( $1::int[], $2::int[], $3::float8[], $4::int[], $5::float8[] ) RETURNING id, transaction_id, product_id, price, quantity, subtotal, created_at, updated_at`)).
+		WithArgs(
+			pq.Array([]int{1}),
+			pq.Array([]int{1}),
+			pq.Array([]float64{20000.0}),
+			pq.Array([]int{2}),
+			pq.Array([]float64{40000.0}),
+		).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "transaction_id", "product_id", "price", "quantity", "subtotal", "created_at", "updated_at"}).
+			AddRow(1, 1, 1, 20000.0, 2, 40000.0, now, now))
 
 	// Expect Commit
 	mock.ExpectCommit()
@@ -136,6 +143,79 @@ func TestTransactionRepository_CreateTransaction_BeginError(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "error begin transaction")
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestTransactionRepository_CreateTransaction_BatchInsertDetails(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create mock: %s", err)
+	}
+	defer db.Close()
+
+	repo := NewTransactionRepository(db)
+
+	items := []models.CheckoutItem{
+		{ProductID: 1, Quantity: 2},
+		{ProductID: 2, Quantity: 3},
+		{ProductID: 3, Quantity: 1},
+	}
+
+	// Expect Begin
+	mock.ExpectBegin()
+
+	// Expect individual product queries (kept as-is)
+	for _, item := range items {
+		productRows := sqlmock.NewRows([]string{"id", "name", "price", "stock"}).
+			AddRow(item.ProductID, fmt.Sprintf("Product %d", item.ProductID), float64(item.ProductID*5000), 100)
+		mock.ExpectQuery(regexp.QuoteMeta(`SELECT id, name, price, stock FROM products WHERE id=$1`)).
+			WithArgs(item.ProductID).
+			WillReturnRows(productRows)
+		mock.ExpectExec(regexp.QuoteMeta(`UPDATE products SET stock = stock - $1, updated_at = NOW() WHERE id = $2`)).
+			WithArgs(item.Quantity, item.ProductID).
+			WillReturnResult(sqlmock.NewResult(0, 1))
+	}
+
+	// Expect transaction insert
+	now := time.Now()
+	totalAmount := float64(2*5000 + 3*10000 + 1*15000) // 10000 + 30000 + 15000 = 55000
+	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO transactions (total_amount) VALUES ($1) RETURNING id, created_at, updated_at`)).
+		WithArgs(totalAmount).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "created_at", "updated_at"}).
+			AddRow(1, now, now))
+
+	// Expect BATCH insert for transaction details using UNNEST
+	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO transaction_details (transaction_id, product_id, price, quantity, subtotal) SELECT * FROM UNNEST( $1::int[], $2::int[], $3::float8[], $4::int[], $5::float8[] ) RETURNING id, transaction_id, product_id, price, quantity, subtotal, created_at, updated_at`)).
+		WithArgs(
+			pq.Array([]int{1, 1, 1}),                    // transaction_id for all 3 items
+			pq.Array([]int{1, 2, 3}),                    // product_ids
+			pq.Array([]float64{5000.0, 10000.0, 15000.0}), // prices
+			pq.Array([]int{2, 3, 1}),                    // quantities
+			pq.Array([]float64{10000.0, 30000.0, 15000.0}), // subtotals
+		).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "transaction_id", "product_id", "price", "quantity", "subtotal", "created_at", "updated_at"}).
+			AddRow(1, 1, 1, 5000.0, 2, 10000.0, now, now).
+			AddRow(2, 1, 2, 10000.0, 3, 30000.0, now, now).
+			AddRow(3, 1, 3, 15000.0, 1, 15000.0, now, now))
+
+	// Expect Commit
+	mock.ExpectCommit()
+
+	result, err := repo.CreateTransaction(context.Background(), items)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, 1, result.ID)
+	assert.Equal(t, 55000.0, result.TotalAmount)
+	assert.Len(t, result.Details, 3)
+
+	// Verify all details have database values
+	for i, detail := range result.Details {
+		assert.NotZero(t, detail.ID, "detail %d should have ID", i)
+		assert.NotZero(t, detail.CreatedAt, "detail %d should have CreatedAt", i)
+		assert.NotNil(t, detail.UpdatedAt, "detail %d should have UpdatedAt", i)
+	}
+
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
