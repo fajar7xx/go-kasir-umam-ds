@@ -51,6 +51,7 @@ Thumbs.db
 *.swp
 *.swo
 task.todo
+docs/
 
 # ===== AI / Personal Workflow =====
 QWEN.md
