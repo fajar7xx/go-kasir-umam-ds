@@ -54,8 +54,8 @@ task.todo
 
 # ===== AI / Personal Workflow =====
 QWEN.md
-CLAUDE.md
-docs/
+# Note: CLAUDE.md is intentionally tracked per project guidelines
+# Note: docs/ is intentionally tracked per project guidelines
 
 
 # ===== Test Coverage Files =====
