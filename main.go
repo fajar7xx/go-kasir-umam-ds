@@ -68,6 +68,10 @@ func main() {
 	transactionService := services.NewTrasactionService(transactionRepository)
 	transactionHandler := handlers.NewTransactionHandler(transactionService)
 
+	reportRepository := repositories.NewReportRepository(db)
+	reportService := services.NewReportService(reportRepository)
+	reportHandler := handlers.NewReportHandler(reportService)
+
 	// localhost:8080/health
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		utils.SendSuccess(w, map[string]string{
@@ -95,6 +99,14 @@ func main() {
 
 	// post /api/v1/checkout
 	http.HandleFunc("/api/v1/checkout", transactionHandler.HandleCheckout)
+
+	// GET /api/v1/reports
+	// GET /api/v1/reports?start_date=2026-01-01&end_data=2026-02-01
+	http.HandleFunc("/api/v1/reports", reportHandler.HandleReport)
+
+	// GET /api/v1/reports/{period}
+	// periot => today, week, month, year, hari-ini
+	http.HandleFunc("/api/v1/reports/{period}", reportHandler.HandleReportByPeriod)
 
 	addr := "0.0.0.0:" + config.Port
 	fmt.Println("Server running on", addr)
