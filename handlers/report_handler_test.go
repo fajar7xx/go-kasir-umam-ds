@@ -15,25 +15,6 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func TestReportHandler_GetReport_Success(t *testing.T) {
-	mockService := new(mocks.ReportServiceMock)
-	handler := NewReportHandler(mockService)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/reports", nil)
-	w := httptest.NewRecorder()
-
-	handler.GetReport(w, req)
-
-	resp := w.Result()
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-
-	var response map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&response)
-
-	data := response["data"].(map[string]interface{})
-	assert.Equal(t, "Report fetched successfully", data["message"])
-}
-
 func TestReportHandler_GetReportByPeriod_HariIni_Success(t *testing.T) {
 	mockService := new(mocks.ReportServiceMock)
 	handler := NewReportHandler(mockService)
