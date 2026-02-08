@@ -187,10 +187,10 @@ func TestTransactionRepository_CreateTransaction_BatchInsertDetails(t *testing.T
 	// Expect BATCH insert for transaction details using UNNEST
 	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO transaction_details (transaction_id, product_id, price, quantity, subtotal) SELECT * FROM UNNEST( $1::int[], $2::int[], $3::float8[], $4::int[], $5::float8[] ) RETURNING id, transaction_id, product_id, price, quantity, subtotal, created_at, updated_at`)).
 		WithArgs(
-			pq.Array([]int{1, 1, 1}),                    // transaction_id for all 3 items
-			pq.Array([]int{1, 2, 3}),                    // product_ids
-			pq.Array([]float64{5000.0, 10000.0, 15000.0}), // prices
-			pq.Array([]int{2, 3, 1}),                    // quantities
+			pq.Array([]int{1, 1, 1}),                       // transaction_id for all 3 items
+			pq.Array([]int{1, 2, 3}),                       // product_ids
+			pq.Array([]float64{5000.0, 10000.0, 15000.0}),  // prices
+			pq.Array([]int{2, 3, 1}),                       // quantities
 			pq.Array([]float64{10000.0, 30000.0, 15000.0}), // subtotals
 		).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "transaction_id", "product_id", "price", "quantity", "subtotal", "created_at", "updated_at"}).
