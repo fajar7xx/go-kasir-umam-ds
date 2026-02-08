@@ -2,10 +2,17 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fajar7xx/go-kasir-umam-ds/internal/repositories"
 	"fajar7xx/go-kasir-umam-ds/models"
 	"fmt"
 	"time"
+)
+
+// Custom error types for report validation
+var (
+	ErrInvalidDateFormat = errors.New("invalid date format")
+	ErrInvalidDateRange  = errors.New("end_date must be after start_date")
 )
 
 type ReportService interface {
@@ -29,25 +36,22 @@ func (s *reportService) GetTodayReport(ctx context.Context) (*models.ReportRespo
 }
 
 func (s *reportService) GetReportByDateRange(ctx context.Context, startDate, endDate string) (*models.ReportResponse, error) {
-	// Parse date string format YYYY-MM-DD
 	layout := "2006-01-02"
 
 	start, err := time.Parse(layout, startDate)
 	if err != nil {
-		return nil, fmt.Errorf("invalid start_date format: %w", err)
+		return nil, fmt.Errorf("%w: start_date must be YYYY-MM-DD format", ErrInvalidDateFormat)
 	}
 
 	end, err := time.Parse(layout, endDate)
 	if err != nil {
-		return nil, fmt.Errorf("invalid end_date format: %w", err)
+		return nil, fmt.Errorf("%w: end_date must be YYYY-MM-DD format", ErrInvalidDateFormat)
 	}
 
-	// Validasi: end harus setelah start
 	if end.Before(start) {
-		return nil, fmt.Errorf("end_date must be after start_date")
+		return nil, ErrInvalidDateRange
 	}
 
-	// Add 1 day to end date untuk inclusive range
 	end = end.Add(24 * time.Hour)
 
 	return s.reportRepo.GetReportByDateRange(ctx, start, end)

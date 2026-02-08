@@ -62,6 +62,7 @@ RESTful API endpoints documentation:
 
 | Document | Description |
 |----------|-------------|
+| [`api/report-endpoints.md`](api/report-endpoints.md) | Report API documentation ✅ |
 | `api/endpoints.md` | Complete API endpoints reference *(Coming soon)* |
 | `api/request-response.md` | Request/Response examples *(Coming soon)* |
 | `api/authentication.md` | Authentication & authorization *(Coming soon)* |
@@ -70,6 +71,7 @@ RESTful API endpoints documentation:
 
 - **Categories** - `/api/categories`
 - **Products** - `/api/products`
+- **Reports** - `/api/v1/reports` ✅
 
 ---
 

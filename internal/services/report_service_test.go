@@ -95,7 +95,7 @@ func TestReportService_GetReportByDateRange_InvalidStartDate(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, result)
-	assert.Contains(t, err.Error(), "invalid start_date format")
+	assert.Contains(t, err.Error(), "start_date must be YYYY-MM-DD format")
 	mockRepo.AssertNotCalled(t, "GetReportByDateRange")
 }
 
@@ -107,7 +107,7 @@ func TestReportService_GetReportByDateRange_InvalidEndDate(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, result)
-	assert.Contains(t, err.Error(), "invalid end_date format")
+	assert.Contains(t, err.Error(), "end_date must be YYYY-MM-DD format")
 	mockRepo.AssertNotCalled(t, "GetReportByDateRange")
 }
 
