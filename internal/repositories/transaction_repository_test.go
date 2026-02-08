@@ -7,6 +7,7 @@ import (
 	"fajar7xx/go-kasir-umam-ds/models"
 	"regexp"
 	"testing"
+	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/lib/pq"
@@ -46,14 +47,17 @@ func TestTransactionRepository_CreateTransaction_SingleItem(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	// Expect transaction insert
-	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO transactions (total_amount) VALUES ($1) RETURNING id`)).
+	now := time.Now()
+	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO transactions (total_amount) VALUES ($1) RETURNING id, created_at, updated_at`)).
 		WithArgs(40000.0).
-		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "created_at", "updated_at"}).
+			AddRow(1, now, now))
 
 	// Expect transaction detail insert
-	mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO transaction_details (transaction_id, product_id, price, quantity, subtotal) VALUES ($1, $2, $3, $4, $5)`)).
+	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO transaction_details (transaction_id, product_id, price, quantity, subtotal) VALUES ($1, $2, $3, $4, $5) RETURNING id, created_at, updated_at`)).
 		WithArgs(1, 1, 20000.0, 2, 40000.0).
-		WillReturnResult(sqlmock.NewResult(1, 1))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "created_at", "updated_at"}).
+			AddRow(1, now, now))
 
 	// Expect Commit
 	mock.ExpectCommit()
@@ -66,6 +70,16 @@ func TestTransactionRepository_CreateTransaction_SingleItem(t *testing.T) {
 	assert.Equal(t, 40000.0, result.TotalAmount)
 	assert.Len(t, result.Details, 1)
 	assert.Equal(t, "Nasi Goreng", result.Details[0].ProductName)
+
+	// Verify timestamps are populated
+	assert.NotZero(t, result.CreatedAt)
+	assert.NotNil(t, result.UpdatedAt)
+	assert.NotZero(t, *result.UpdatedAt)
+	assert.NotZero(t, result.Details[0].ID)
+	assert.NotZero(t, result.Details[0].CreatedAt)
+	assert.NotNil(t, result.Details[0].UpdatedAt)
+	assert.NotZero(t, *result.Details[0].UpdatedAt)
+
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -158,12 +172,14 @@ func TestTransactionRepository_CreateTransactionOptimal_SingleItem(t *testing.T)
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	// Expect transaction insert
-	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO transactions (total_amount, created_at) VALUES ($1, NOW()) RETURNING id`)).
+	now := time.Now()
+	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO transactions (total_amount) VALUES ($1) RETURNING id, created_at, updated_at`)).
 		WithArgs(40000.0).
-		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "created_at", "updated_at"}).
+			AddRow(1, now, now))
 
 	// Expect batch INSERT transaction details with UNNEST
-	mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO transaction_details (transaction_id, product_id, price, quantity, subtotal) SELECT * FROM UNNEST( $1::int[], $2::int[], $3::float8[], $4::int[], $5::float8[] )`)).
+	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO transaction_details (transaction_id, product_id, price, quantity, subtotal) SELECT * FROM UNNEST( $1::int[], $2::int[], $3::float8[], $4::int[], $5::float8[] ) RETURNING id, transaction_id, product_id, price, quantity, subtotal, created_at, updated_at`)).
 		WithArgs(
 			pq.Array([]int{1}),
 			pq.Array([]int{1}),
@@ -171,7 +187,8 @@ func TestTransactionRepository_CreateTransactionOptimal_SingleItem(t *testing.T)
 			pq.Array([]int{2}),
 			pq.Array([]float64{40000.0}),
 		).
-		WillReturnResult(sqlmock.NewResult(0, 1))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "transaction_id", "product_id", "price", "quantity", "subtotal", "created_at", "updated_at"}).
+			AddRow(1, 1, 1, 20000.0, 2, 40000.0, now, now))
 
 	// Expect Commit
 	mock.ExpectCommit()
@@ -183,6 +200,16 @@ func TestTransactionRepository_CreateTransactionOptimal_SingleItem(t *testing.T)
 	assert.Equal(t, 1, result.ID)
 	assert.Equal(t, 40000.0, result.TotalAmount)
 	assert.Len(t, result.Details, 1)
+
+	// Verify timestamps are populated
+	assert.NotZero(t, result.CreatedAt)
+	assert.NotNil(t, result.UpdatedAt)
+	assert.NotZero(t, *result.UpdatedAt)
+	assert.NotZero(t, result.Details[0].ID)
+	assert.NotZero(t, result.Details[0].CreatedAt)
+	assert.NotNil(t, result.Details[0].UpdatedAt)
+	assert.NotZero(t, *result.Details[0].UpdatedAt)
+
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 

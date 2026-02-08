@@ -7,6 +7,7 @@ import (
 	"fajar7xx/go-kasir-umam-ds/models"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/lib/pq"
 )
@@ -101,12 +102,18 @@ func (repo *transactionRepository) CreateTransaction(ctx context.Context, items 
 
 	// insert transactions
 	var transactionID int
+	var transactionCreatedAt time.Time
+	var transactionUpdatedAt *time.Time
 	insertTransactionQuery := `INSERT INTO transactions
 								(total_amount)
 								VALUES
 								($1)
-								RETURNING id`
-	err = tx.QueryRowContext(ctx, insertTransactionQuery, totalAmount).Scan(&transactionID)
+								RETURNING id, created_at, updated_at`
+	err = tx.QueryRowContext(ctx, insertTransactionQuery, totalAmount).Scan(
+		&transactionID,
+		&transactionCreatedAt,
+		&transactionUpdatedAt,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("error to insert transaction: %w", err)
 	}
@@ -115,19 +122,30 @@ func (repo *transactionRepository) CreateTransaction(ctx context.Context, items 
 	insertTransactionDetailQuery := `INSERT INTO transaction_details
 									(transaction_id, product_id, price, quantity, subtotal)
 									VALUES
-									($1, $2, $3, $4, $5)`
+									($1, $2, $3, $4, $5)
+									RETURNING id, created_at, updated_at`
 	for i := range details {
 		details[i].TransactionID = transactionID
-		_, err = tx.ExecContext(ctx, insertTransactionDetailQuery,
+
+		var detailID int
+		var detailCreatedAt time.Time
+		var detailUpdatedAt *time.Time
+
+		err = tx.QueryRowContext(ctx, insertTransactionDetailQuery,
 			details[i].TransactionID,
 			details[i].ProductID,
 			details[i].Price,
 			details[i].Quantity,
 			details[i].SubTotal,
-		)
+		).Scan(&detailID, &detailCreatedAt, &detailUpdatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("error to insert transaction detail: %w", err)
 		}
+
+		// Update detail with database values
+		details[i].ID = detailID
+		details[i].CreatedAt = detailCreatedAt
+		details[i].UpdatedAt = detailUpdatedAt
 	}
 
 	// commit transaction
@@ -140,6 +158,8 @@ func (repo *transactionRepository) CreateTransaction(ctx context.Context, items 
 		ID:          transactionID,
 		TotalAmount: totalAmount,
 		Details:     details,
+		CreatedAt:   transactionCreatedAt,
+		UpdatedAt:   transactionUpdatedAt,
 	}
 
 	return result, nil
@@ -282,12 +302,18 @@ func (repo *transactionRepository) CreateTransactionOptimal(ctx context.Context,
 	// FIX #4: INSERT transaction
 	// ==========================================
 	var transactionID int
+	var transactionCreatedAt time.Time
+	var transactionUpdatedAt *time.Time
 	insertTxQuery := `
-			INSERT INTO transactions (total_amount, created_at)
-			VALUES ($1, NOW())
-			RETURNING id
+			INSERT INTO transactions (total_amount)
+			VALUES ($1)
+			RETURNING id, created_at, updated_at
 		`
-	err = tx.QueryRowContext(ctx, insertTxQuery, totalAmount).Scan(&transactionID)
+	err = tx.QueryRowContext(ctx, insertTxQuery, totalAmount).Scan(
+		&transactionID,
+		&transactionCreatedAt,
+		&transactionUpdatedAt,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("insert transaction: %w", err)
 	}
@@ -320,9 +346,10 @@ func (repo *transactionRepository) CreateTransactionOptimal(ctx context.Context,
 					$4::int[],
 					$5::float8[]
 				)
+				RETURNING id, transaction_id, product_id, price, quantity, subtotal, created_at, updated_at
 			`
 
-		_, err = tx.ExecContext(ctx, insertDetailsQuery,
+		rows, err := tx.QueryContext(ctx, insertDetailsQuery,
 			pq.Array(detailTxIDs),
 			pq.Array(detailProductIDs),
 			pq.Array(detailPrices),
@@ -332,6 +359,40 @@ func (repo *transactionRepository) CreateTransactionOptimal(ctx context.Context,
 		if err != nil {
 			return nil, fmt.Errorf("insert transaction details: %w", err)
 		}
+		defer rows.Close()
+
+		// Scan results and reconstruct with all database values
+		finalDetails := make([]models.TransactionDetail, 0, len(details))
+		for rows.Next() {
+			var d models.TransactionDetail
+			err := rows.Scan(
+				&d.ID,
+				&d.TransactionID,
+				&d.ProductID,
+				&d.Price,
+				&d.Quantity,
+				&d.SubTotal,
+				&d.CreatedAt,
+				&d.UpdatedAt,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("scan transaction detail: %w", err)
+			}
+
+			// Add product name from existing productMap (O(1) lookup)
+			if product, exists := productMap[d.ProductID]; exists {
+				d.ProductName = product.Name
+			}
+
+			finalDetails = append(finalDetails, d)
+		}
+
+		if err = rows.Err(); err != nil {
+			return nil, fmt.Errorf("iterate transaction details: %w", err)
+		}
+
+		// Replace details with finalDetails containing database values
+		details = finalDetails
 	}
 
 	// ==========================================
@@ -341,14 +402,11 @@ func (repo *transactionRepository) CreateTransactionOptimal(ctx context.Context,
 		return nil, fmt.Errorf("commit transaction: %w", err)
 	}
 
-	// Update details with transaction ID
-	for i := range details {
-		details[i].TransactionID = transactionID
-	}
-
 	return &models.Transaction{
 		ID:          transactionID,
 		TotalAmount: totalAmount,
 		Details:     details,
+		CreatedAt:   transactionCreatedAt,
+		UpdatedAt:   transactionUpdatedAt,
 	}, nil
 }
